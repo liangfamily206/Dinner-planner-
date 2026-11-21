@@ -1,0 +1,899 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Dinner Planner</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;700;800&display=swap">
+<style>
+/* Layout: one bold column. Each night is a big colored card owned by one family member; tabs for Week, Groceries, Allergies. */
+:root {
+  --bg: #f3f6ff;
+  --surface: #ffffff;
+  --fg: #16182e;
+  --muted: #5a5f80;
+  --line: #dfe4f5;
+  --ink: #16182e;
+  --mon: #ff5a5f; --tue: #ff9f1c; --wed: #ffcd3c; --thu: #2ec4b6; --fri: #3a86ff; --sat: #8f4dff; --sun: #ff4fa3;
+  --ok: #129a5a; --ok-soft: #dcf6e8;
+  --warn: #8a5300; --warn-soft: #fff1d1;
+  --danger: #c4231c; --danger-soft: #ffe3e0;
+  --plate: #ffffff; --plate-rim: #e6e9f7; --art-bg: #fff4dc;
+  --font-display: "Fredoka", "Arial Rounded MT Bold", "Trebuchet MS", system-ui, sans-serif;
+  --font-body: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12142a; --surface: #1d2040; --fg: #f1f2ff; --muted: #a9adcf; --line: #30345e;
+  --ok: #4fd99a; --ok-soft: #173a2b; --warn: #ffc966; --warn-soft: #3a2c10; --danger: #ff8d85; --danger-soft: #42201e; --plate: #f4f1ea; --plate-rim: #3a3f70; --art-bg: #262a52; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12142a; --surface: #1d2040; --fg: #f1f2ff; --muted: #a9adcf; --line: #30345e;
+  --ok: #4fd99a; --ok-soft: #173a2b; --warn: #ffc966; --warn-soft: #3a2c10; --danger: #ff8d85; --danger-soft: #42201e; --plate: #f4f1ea; --plate-rim: #3a3f70; --art-bg: #262a52; color-scheme: dark }
+
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.45; font-weight: 500; }
+.wrap { max-width: 820px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 18px 56px; }
+h1, h2, h3 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
+button, select { font: inherit; }
+:focus-visible { outline: 3px solid var(--fri); outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) { .pop { transition: transform .12s ease; } .pop:active { transform: scale(.97); } }
+
+/* Header */
+.brand { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; justify-content: space-between; }
+.logo { display: flex; align-items: center; gap: 10px; }
+.plate { width: 44px; height: 44px; border-radius: 50%; background: conic-gradient(var(--mon) 0 14%, var(--tue) 0 28%, var(--wed) 0 43%, var(--thu) 0 57%, var(--fri) 0 71%, var(--sat) 0 86%, var(--sun) 0); position: relative; flex: none; }
+.plate::after { content: ""; position: absolute; inset: 9px; border-radius: 50%; background: var(--bg); }
+h1 { font-size: 2.1rem; font-weight: 700; letter-spacing: -0.01em; }
+.tag { color: var(--muted); font-weight: 700; margin: 4px 0 0; }
+.safe { display: inline-flex; align-items: center; gap: 6px; background: var(--ok-soft); color: var(--ok); font-weight: 800; padding: 6px 12px; border-radius: 999px; font-size: .85rem; }
+.safe::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--ok); }
+.sync { font-size: .8rem; color: var(--muted); }
+
+/* Tabs */
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+nav.tabs { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); display: flex; gap: 8px; padding-block: 12px; margin-top: 10px; }
+nav.tabs button { flex: 1; border: 3px solid var(--ink); background: var(--surface); color: var(--fg); padding: 10px 6px; border-radius: 14px; font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; cursor: pointer; box-shadow: 0 4px 0 var(--ink); }
+nav.tabs button[aria-selected="true"] { background: var(--wed); color: var(--ink); }
+:root[data-theme="dark"] nav.tabs button, :root[data-theme="dark"] .btn { border-color: var(--line); box-shadow: 0 4px 0 #000; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) nav.tabs button, :root:not([data-theme="light"]) .btn { border-color: var(--line); box-shadow: 0 4px 0 #000; } }
+.count { font-variant-numeric: tabular-nums; }
+
+section.view { display: grid; gap: 16px; padding-top: 14px; }
+.bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.progress { font-family: var(--font-display); font-weight: 600; font-size: 1.1rem; }
+.btn { border: 3px solid var(--ink); background: var(--surface); color: var(--fg); padding: 8px 16px; border-radius: 12px; cursor: pointer; font-weight: 800; box-shadow: 0 3px 0 var(--ink); }
+.btn.go { background: var(--ok); color: #fff; }
+.btn.small { padding: 5px 12px; font-size: .88rem; box-shadow: 0 2px 0 var(--ink); border-width: 2px; }
+.btn:disabled { opacity: .5; cursor: default; }
+
+/* Night card */
+.nights { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
+.night { background: var(--surface); border-radius: 20px; overflow: hidden; border: 3px solid var(--day); }
+.night-top { background: var(--day); color: var(--day-ink); padding: 10px 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.dayname { font-family: var(--font-display); font-weight: 700; font-size: 1.5rem; line-height: 1.1; }
+.owner { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; }
+.owner select { border: 2px solid currentColor; background: transparent; color: inherit; border-radius: 999px; padding: 3px 10px; font-weight: 800; cursor: pointer; }
+.owner select option { color: #16182e; background: #fff; }
+.night-body { padding: 14px 16px 16px; display: grid; gap: 12px; }
+.prompt { font-family: var(--font-display); font-weight: 600; font-size: 1.1rem; }
+.cuisines { display: flex; flex-wrap: wrap; gap: 8px; }
+.cz { border: 2px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 999px; padding: 6px 14px; font-weight: 800; cursor: pointer; }
+.cz[aria-pressed="true"] { background: var(--day); color: var(--day-ink); border-color: var(--day); }
+.options { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.opt { text-align: left; border: 3px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 16px; padding: 12px 14px; cursor: pointer; display: grid; gap: 4px; min-width: 0; }
+.opt:hover { border-color: var(--day); }
+.opt .on { font-family: var(--font-display); font-weight: 600; font-size: 1.15rem; line-height: 1.2; }
+.opt .od { color: var(--muted); font-size: .88rem; }
+.opt .ot { font-size: .8rem; font-weight: 800; color: var(--muted); }
+.newbadge { display: inline-block; background: var(--sat); color: #fff; font-size: .72rem; font-weight: 800; padding: 1px 8px; border-radius: 999px; margin-bottom: 2px; justify-self: start; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chosen { display: grid; gap: 6px; }
+.chosen .cname { font-family: var(--font-display); font-weight: 700; font-size: 1.6rem; line-height: 1.15; }
+.chosen .meta { color: var(--muted); font-weight: 700; }
+.side { background: var(--ok-soft); color: var(--ok); font-weight: 700; border-radius: 10px; padding: 6px 10px; font-size: .88rem; }
+.note { background: var(--warn-soft); color: var(--warn); border-radius: 10px; padding: 6px 10px; font-size: .88rem; font-weight: 700; }
+.err { background: var(--danger-soft); color: var(--danger); border-radius: 10px; padding: 6px 10px; font-size: .88rem; font-weight: 700; }
+details { background: var(--bg); border-radius: 12px; padding: 8px 12px; }
+details summary { cursor: pointer; font-weight: 800; }
+details h4 { margin: 10px 0 4px; font-family: var(--font-display); font-weight: 600; }
+details ul, details ol { margin: 0; padding-left: 1.3rem; }
+details li { margin: 2px 0; }
+.skipped .chosen .cname { color: var(--muted); }
+
+/* Ready banner */
+.ready { background: var(--ok); color: #fff; border-radius: 18px; padding: 14px 18px; display: grid; gap: 4px; }
+.ready h2 { font-size: 1.3rem; }
+.ready p { margin: 0; font-weight: 700; }
+
+/* Groceries */
+.aisle { display: grid; gap: 8px; }
+.aisle h3 { font-size: 1.15rem; display: flex; align-items: center; gap: 8px; }
+.aisle h3::before { content: ""; width: 14px; height: 14px; border-radius: 4px; background: var(--ac); }
+.items { list-style: none; margin: 0; padding: 0; background: var(--surface); border-radius: 16px; border: 2px solid var(--line); }
+.item { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: start; padding: 12px 14px; border-top: 2px solid var(--line); }
+.item:first-child { border-top: 0; }
+.item input { width: 24px; height: 24px; margin-top: 1px; accent-color: var(--ok); }
+.item label { min-width: 0; cursor: pointer; }
+.item .name { font-weight: 800; }
+.item .qty { color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 700; }
+.item .for { display: block; color: var(--muted); font-size: .8rem; }
+.item.done .name { text-decoration: line-through; color: var(--muted); }
+.flag { display: block; color: var(--warn); font-size: .82rem; font-weight: 700; margin-top: 2px; }
+.amz { font-size: .82rem; font-weight: 800; color: var(--fri); white-space: nowrap; padding-top: 2px; }
+textarea.copybox { width: 100%; min-height: 160px; font: .85rem/1.4 ui-monospace, monospace; background: var(--surface); color: var(--fg); border: 2px solid var(--line); border-radius: 12px; padding: 8px; box-sizing: border-box; }
+.fine { font-size: .85rem; color: var(--muted); margin: 0; }
+
+/* Allergies */
+.card { background: var(--surface); border-radius: 18px; padding: 14px 16px; display: grid; gap: 10px; border: 3px solid var(--pc, var(--line)); }
+.card h2 { font-size: 1.35rem; display: flex; align-items: center; gap: 10px; }
+.dot { width: 18px; height: 18px; border-radius: 50%; background: var(--pc); flex: none; }
+.tablewrap { overflow-x: auto; }
+table.allergy { width: 100%; border-collapse: collapse; font-size: .92rem; }
+table.allergy th, table.allergy td { text-align: left; padding: 8px 6px; border-top: 2px solid var(--line); vertical-align: top; }
+table.allergy th { color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; border-top: 0; }
+.sev { font-weight: 800; white-space: nowrap; }
+.sev.high { color: var(--danger); } .sev.mid { color: var(--warn); } .sev.ok { color: var(--ok); }
+.hs { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: .8rem; padding: 2px 10px; border-radius: 999px; justify-self: start; }
+.hs.great { background: var(--ok-soft); color: var(--ok); }
+.hs.good { background: var(--warn-soft); color: var(--warn); }
+.hs.treat { background: var(--danger-soft); color: var(--danger); }
+.why { color: var(--muted); font-size: .82rem; font-weight: 700; }
+.health { background: var(--surface); border-radius: 20px; border: 3px solid var(--thu); padding: 14px 16px; display: grid; gap: 12px; }
+.health-top { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.big { font-family: var(--font-display); font-weight: 700; font-size: 2.6rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.big small { font-size: 1.1rem; color: var(--muted); }
+.meter { flex: 1; min-width: 160px; height: 16px; border-radius: 999px; background: var(--bg); overflow: hidden; border: 2px solid var(--line); }
+.meter span { display: block; height: 100%; border-radius: 999px; background: var(--ok); }
+.checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; list-style: none; margin: 0; padding: 0; }
+.checks li { border-radius: 12px; padding: 8px 12px; font-weight: 800; font-size: .9rem; display: grid; gap: 2px; }
+.checks li.okc { background: var(--ok-soft); color: var(--ok); }
+.checks li.warnc { background: var(--warn-soft); color: var(--warn); }
+.checks li span { font-weight: 600; font-size: .8rem; }
+.storebar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; background: var(--surface); border: 2px solid var(--line); border-radius: 16px; padding: 10px 14px; }
+.storebar select { border: 2px solid var(--line); border-radius: 10px; padding: 6px 10px; background: var(--bg); color: var(--fg); font-weight: 800; }
+.storebar label { font-weight: 800; display: inline-flex; gap: 8px; align-items: center; }
+.storehead { font-family: var(--font-display); font-weight: 700; font-size: 1.5rem; margin-top: 6px; }
+.art { display: block; width: 100%; aspect-ratio: 200 / 130; border-radius: 12px; background: var(--art-bg); object-fit: cover; max-width: 100%; }
+.chosen .art { max-width: 360px; }
+.photo-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.photo-row input { max-width: 100%; font-size: .85rem; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 12px; font-weight: 800; z-index: 20; }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+.who { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.who b { font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; }
+.who button { border: 3px solid var(--pc); background: var(--surface); color: var(--fg); border-radius: 999px; padding: 6px 14px; font-weight: 800; cursor: pointer; }
+.who button[aria-pressed="true"] { background: var(--pc); color: #16182e; }
+figure.pic { margin: 0; display: grid; gap: 3px; }
+.credit { font-size: .7rem; color: var(--muted); }
+.credit a { color: inherit; }
+.credits { font-size: .8rem; color: var(--muted); }
+.credits li { margin: 2px 0; }
+.setup { background: var(--surface); border: 3px solid var(--fri); border-radius: 20px; padding: 18px; display: grid; gap: 12px; margin-top: 16px; }
+.setup h2 { font-size: 1.5rem; }
+.share { background: var(--surface); border: 3px dashed var(--fri); border-radius: 18px; padding: 12px 16px; display: grid; gap: 8px; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo"><div class="plate" aria-hidden="true"></div><div><h1>Dinner Planner</h1></div></div>
+      <span class="safe">Every dish is safe for Greyson and Jet</span>
+    </div>
+    <p class="tag" id="weeklabel">Pick dinners for the week</p>
+    <div class="who" id="who"></div>
+    <span class="sync" id="sync">Connecting…</span>
+  </header>
+
+  <section class="setup" id="setup" hidden>
+    <h2>Set up your family's Dinner Planner</h2>
+    <p class="fine" style="font-size:1rem">This creates your family's private plan and a link to share. Anyone with the link can pick dinners, so only send it to family.</p>
+    <div class="row"><button class="btn go pop" id="create">Create our family plan</button></div>
+  </section>
+
+  <nav class="tabs" role="tablist" id="tabs">
+    <button class="pop" role="tab" aria-selected="true" data-view="plan">Pick dinners</button>
+    <button class="pop" role="tab" aria-selected="false" data-view="list">Groceries <span class="count" id="list-count"></span></button>
+    <button class="pop" role="tab" aria-selected="false" data-view="allergy">Allergies</button>
+  </nav>
+
+  <section class="view" id="view-plan">
+    <div class="bar">
+      <span class="progress" id="progress"></span>
+      <div class="row">
+        <button class="btn go pop" id="done">Week's picked</button>
+        <button class="btn small pop" id="newweek">Start a new week</button>
+      </div>
+    </div>
+    <div class="ready" id="ready" hidden>
+      <h2>The week is picked</h2>
+      <p>The shopping list is ready on the Groceries tab.</p>
+    </div>
+    <div class="note" id="confirm-new" hidden>
+      Start over? This clears every night's pick and the grocery ticks. Dishes you picked this week will show up less often next week.
+      <div class="row" style="margin-top:8px"><button class="btn small pop" id="confirm-yes">Yes, start a new week</button><button class="btn small pop" id="confirm-no">Keep this week</button></div>
+    </div>
+    <div class="health" id="health"></div>
+    <ol class="nights" id="nights"></ol>
+    <div class="share" id="sharebox" hidden>
+      <b>Share with the family</b>
+      <p class="fine">Send this link to Mom, Greyson, Isla and anyone else who picks. It opens straight into your family's week.</p>
+      <div class="row"><button class="btn small pop" id="sharebtn">Copy the family link</button></div>
+      <textarea class="copybox" id="sharetext" readonly hidden style="min-height:60px"></textarea>
+    </div>
+  </section>
+
+  <section class="view" id="view-list" hidden>
+    <div class="bar">
+      <span class="progress">Shopping list for 6</span>
+      <div class="row"><button class="btn go pop" id="copy">Copy list</button><button class="btn small pop" id="reset">Clear ticks</button></div>
+    </div>
+    <div class="storebar">
+      <label for="store">Shop at <select id="store"></select></label>
+      <label for="costco"><input type="checkbox" id="costco"> Meat, rice and oils from Costco</label>
+    </div>
+    <p class="fine">Built from the dinners you picked, in walking order: produce first, cold and frozen last. Tick items as they go in the cart. Yellow notes mean brands differ, so read the label before buying.</p>
+    <p class="note" id="storenote" hidden></p>
+    <div id="copy-fallback" hidden><textarea class="copybox" id="copy-text" readonly></textarea></div>
+    <div id="aisles" style="display:grid;gap:18px"></div>
+  </section>
+
+  <section class="view" id="view-allergy" hidden>
+    <details class="card"><summary>Photo credits</summary><ul class="credits" id="credits"></ul><p class="fine">Dish photos come from Wikipedia and are used under their free licenses. They show a typical version of each dish, which may include cheese, egg or other ingredients our recipes leave out.</p></details>
+    <div class="card" style="--pc: var(--thu)">
+      <h2><span class="dot"></span>Greyson, 16</h2>
+      <div class="tablewrap"><table class="allergy">
+        <thead><tr><th>Allergen</th><th>Reaction</th><th>Hides in</th></tr></thead>
+        <tbody>
+          <tr><td>Fish</td><td class="sev high">Life-threatening</td><td>Fish sauce, Worcestershire, dashi, most kimchi, Caesar dressing, some BBQ sauces</td></tr>
+          <tr><td>Eggs</td><td class="sev high">Severe</td><td>Mayo, egg noodles, batters and breading, most baked goods, pancake mixes</td></tr>
+          <tr><td>Milk</td><td class="sev high">Severe</td><td>Butter, whey, casein, some breads, sausages, curry blocks, seasoning packets</td></tr>
+          <tr><td>Tree nuts</td><td class="sev high">Allergic</td><td>Pesto, almond-based dairy-free cheese and dips (like Kite Hill), hazelnut spreads, nut flours</td></tr>
+          <tr><td>Peanuts</td><td class="sev mid">Skin reactions</td><td>Kept out of every dish for now. Satay, kung pao, some frying oils</td></tr>
+          <tr><td>Food coloring</td><td class="sev mid">Eczema</td><td>Red-dyed sauces like banana ketchup and jarred char siu, colored chips and candy</td></tr>
+          <tr><td>Shellfish</td><td class="sev ok">Not allergic</td><td>Fine, but rarely cooked at home. Oyster sauce is allowed</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="card" style="--pc: var(--sun)">
+      <h2><span class="dot"></span>Mom</h2>
+      <div class="tablewrap"><table class="allergy"><thead><tr><th>Allergen</th><th>Reaction</th><th>Notes</th></tr></thead>
+        <tbody><tr><td>Dairy</td><td class="sev high">Allergic</td><td>Same hiding spots as milk above</td></tr></tbody></table></div>
+    </div>
+    <div class="card" style="--pc: var(--wed)">
+      <h2><span class="dot"></span>Jet, 5</h2>
+      <div class="tablewrap"><table class="allergy"><thead><tr><th>Allergen</th><th>Reaction</th><th>Notes</th></tr></thead>
+        <tbody><tr><td>Eggs</td><td class="sev mid">Itchy</td><td>Avoided at home and in his lunchbox</td></tr>
+        <tr><td>Dairy</td><td class="sev mid">Itchy</td><td>Less strict, so he can try more foods</td></tr></tbody></table></div>
+    </div>
+    <div class="card">
+      <h2>How the app keeps dinner safe</h2>
+      <p class="fine" style="font-size:.95rem">Every dish leaves out fish, eggs, dairy, tree nuts and peanuts, and has no seafood, so all six of you eat the same dinner. Isla and Beckett can add cheese on the side when a recipe says so.</p>
+      <p class="fine" style="font-size:.95rem">The app checks ingredients, not products. Brands change recipes and factory lines, so read every label, especially for fish and "may contain tree nuts".</p>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+// Paste the Firebase web config here (Project settings > Your apps > Config).
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDKofDTv50p2oXIVolqz6mvsf6mreMQBkI",
+  authDomain: "dinner-planner-d0b29.firebaseapp.com",
+  projectId: "dinner-planner-d0b29",
+  storageBucket: "dinner-planner-d0b29.firebasestorage.app",
+  messagingSenderId: "645973345088",
+  appId: "1:645973345088:web:83e36574a707e41f1370a5"
+};
+
+// ===== Family =====
+const PEOPLE = {
+  jet: { name: "Jet", color: "var(--wed)" }, beckett: { name: "Beckett", color: "var(--tue)" }, isla: { name: "Isla", color: "var(--sat)" },
+  greyson: { name: "Greyson", color: "var(--thu)" }, mom: { name: "Mom", color: "var(--sun)" }, dad: { name: "Dad", color: "var(--fri)" },
+  family: { name: "Mom & Dad", color: "var(--mon)" }
+};
+const DAYS = [
+  { k: "mon", n: "Monday", c: "var(--mon)", ink: "#16182e" }, { k: "tue", n: "Tuesday", c: "var(--tue)", ink: "#16182e" },
+  { k: "wed", n: "Wednesday", c: "var(--wed)", ink: "#16182e" }, { k: "thu", n: "Thursday", c: "var(--thu)", ink: "#16182e" },
+  { k: "fri", n: "Friday", c: "var(--fri)", ink: "#ffffff" }, { k: "sat", n: "Saturday", c: "var(--sat)", ink: "#ffffff" },
+  { k: "sun", n: "Sunday", c: "var(--sun)", ink: "#16182e" }
+];
+const DEFAULT_OWNERS = { mon: "jet", tue: "beckett", wed: "isla", thu: "greyson", fri: "mom", sat: "dad", sun: "family" };
+const CUISINES = [
+  ["korean", "Korean"], ["chinese", "Chinese"], ["japanese", "Japanese"], ["vietnamese", "Vietnamese"],
+  ["islands", "Filipino & Hawaiian"], ["italian", "Italian"], ["mexican", "Mexican"], ["american", "American"]
+];
+const CZ_NAME = Object.fromEntries(CUISINES);
+
+// ===== Label notes =====
+const L = {
+  bread: "Many breads and buns contain milk or egg. Check the label.",
+  tort: "Some flour tortillas contain milk. Check the label.",
+  season: "Some seasoning packets contain milk powder. Check the label.",
+  pasta: "Dried pasta is usually egg-free. Avoid fresh pasta and egg noodles.",
+  bbq: "Many BBQ sauces use Worcestershire, which is made from anchovies (fish).",
+  broth: "Check the label for milk or fish.",
+  sausage: "Some sausages and pepperoni contain milk. Check the label.",
+  dfcheese: "Many dairy-free cheeses are made from cashews or almonds. Buy only a nut-free brand (like Violife).",
+  marinara: "Skip sauces with Parmesan, Romano or cream.",
+  teri: "Avoid any that list fish extract.",
+  dough: "Check the label for milk and egg.",
+  chips: "Plain corn chips are usually fine. Avoid cheese-flavored or dyed ones.",
+  noodle: "Most lo mein and ramen noodles contain egg. Buy ones labeled egg-free.",
+  kimchi: "Most kimchi contains fish sauce or salted shrimp. Buy a vegan kimchi only.",
+  vfish: "Vegan fish sauce only (made from soy or pineapple). Never regular fish sauce.",
+  curry: "Some curry roux blocks contain milk. Check every box.",
+  gochu: "Check the label: a few brands add anchovy or fish.",
+  hoisin: "Check the label for peanuts or fish.",
+  panko: "Some panko contains milk or egg. Check the label.",
+  ricenoodle: "Usually just rice and water. Check the label.",
+  mayo: "Use Vegenaise or another egg-free mayo.",
+  dye: "Many brands are dyed red. Buy a dye-free one.",
+  tonkatsu: "Some brands contain anchovy. Check the label.",
+  crumbs: "Check the label for milk and egg.",
+  cheese: "For Isla and Beckett only. Keep it away from Greyson's plate.",
+  spice: "Check that it's spices only, no bouillon or milk powder."
+};
+const AISLE = { P: "Produce", M: "Meat", B: "Bakery", R: "Refrigerated", F: "Frozen", A: "Pantry", X: "Asian pantry", H: "Spices", S: "Pantry staples" };
+// Walking order: shelf-stable first, cold and frozen last so they stay cold.
+const AISLE_ORDER = ["Produce", "Bakery", "Pantry", "Asian pantry", "Spices", "Pantry staples", "Meat", "Refrigerated", "Frozen"];
+const AISLE_COLOR = { "Produce": "var(--thu)", "Meat": "var(--mon)", "Bakery": "var(--tue)", "Refrigerated": "var(--fri)", "Frozen": "var(--fri)", "Pantry": "var(--wed)", "Asian pantry": "var(--sun)", "Spices": "var(--sat)", "Pantry staples": "var(--line)" };
+const CHEESE = "Cheese on the side for Isla and Beckett.";
+
+// ===== Recipes (all free of fish, seafood, egg, dairy, tree nuts, peanuts) =====
+// ing: [qty, unit, name, aisle, labelNote]. qty 0 = pantry staple.
+const RECIPES = [
+  // Korean
+  { id: "galbi", c: "korean", n: "Galbi short ribs", t: "40 min + marinate", d: "Sweet soy short ribs off the grill", ing: [[4,"lb","Flanken-cut beef short ribs","M"],[1,"","Asian pear","P"],[1,"head","Garlic","P"],[1,"bunch","Green onions","P"],[2,"head","Red leaf lettuce","P"],[1,"","English cucumber","P"],[0,"","Soy sauce","S"],[0,"","Brown sugar","S"],[0,"","Sesame oil","S"],[0,"","Short-grain rice","S"]], s: ["Blend the pear, 6 garlic cloves, ¾ cup soy sauce, ⅓ cup brown sugar and 2 tbsp sesame oil.", "Marinate ribs at least 2 hours, or overnight.", "Grill or broil 3–4 min per side.", "Serve with rice, lettuce for wrapping and sliced cucumber."] },
+  { id: "bulgogi", c: "korean", n: "Beef bulgogi", t: "30 min + marinate", d: "Thin-sliced beef in sweet soy", ing: [[3,"lb","Thin-sliced ribeye","M"],[1,"","Asian pear","P"],[1,"","Yellow onions","P"],[1,"bunch","Green onions","P"],[1,"lb","Carrots","P"],[1,"head","Garlic","P"],[2,"head","Broccoli","P"],[0,"","Soy sauce","S"],[0,"","Brown sugar","S"],[0,"","Sesame oil","S"],[0,"","Short-grain rice","S"]], s: ["Grate the pear; mix with ½ cup soy, ¼ cup brown sugar, 2 tbsp sesame oil and 5 minced garlic cloves.", "Marinate beef with sliced onion and carrot for 30 min or more.", "Cook in a very hot pan in batches.", "Top with green onions. Serve with rice and steamed broccoli."] },
+  { id: "jeyuk", c: "korean", n: "Spicy pork bulgogi", t: "30 min", d: "Gochujang pork stir-fry", note: "Use half the gochujang for a milder pan for Jet.", ing: [[3,"lb","Thin-sliced pork shoulder","M"],[1,"tub","Gochujang","X",L.gochu],[2,"","Yellow onions","P"],[1,"bunch","Green onions","P"],[1,"head","Garlic","P"],[1,"piece","Fresh ginger","P"],[1,"","English cucumber","P"],[0,"","Soy sauce","S"],[0,"","Sugar","S"],[0,"","Sesame oil","S"],[0,"","Short-grain rice","S"]], s: ["Mix ⅓ cup gochujang, 3 tbsp soy, 2 tbsp sugar, garlic, ginger and 1 tbsp sesame oil.", "Coat the pork and sliced onions.", "Stir-fry in a hot pan until caramelized at the edges.", "Serve with rice and cucumber slices."] },
+  { id: "dakgalbi", c: "korean", n: "Dakgalbi", t: "35 min", d: "Spicy chicken, cabbage and sweet potato", ing: [[3,"lb","Boneless chicken thighs","M"],[1,"tub","Gochujang","X",L.gochu],[1.5,"lb","Sweet potatoes","P"],[1,"head","Green cabbage","P"],[1,"","Yellow onions","P"],[1,"bunch","Green onions","P"],[1,"lb","Korean rice cakes (tteok)","X","Usually just rice. Check the label."],[1,"head","Garlic","P"],[0,"","Soy sauce","S"],[0,"","Sugar","S"],[0,"","Short-grain rice","S"]], s: ["Toss chicken with ⅓ cup gochujang, 2 tbsp soy, 2 tbsp sugar and garlic.", "Cook chicken in a big pan, then add sweet potato, cabbage and onion.", "Add rice cakes for the last 8 min.", "Finish with green onions."] },
+  { id: "japchae", c: "korean", n: "Japchae with beef", t: "40 min", d: "Glass noodles with beef and vegetables", note: "Traditional japchae is topped with egg strips. Leave them off.", ing: [[1,"lb","Sweet potato glass noodles","X",L.ricenoodle],[1.5,"lb","Thin-sliced ribeye","M"],[10,"oz","Baby spinach","P"],[1,"lb","Carrots","P"],[1,"","Yellow onions","P"],[8,"oz","Shiitake mushrooms","P"],[1,"","Bell peppers","P"],[0,"","Soy sauce","S"],[0,"","Sugar","S"],[0,"","Sesame oil","S"]], s: ["Boil noodles 6 min, rinse, toss with sesame oil.", "Stir-fry beef, then each vegetable.", "Toss everything with ⅓ cup soy, 2 tbsp sugar and 2 tbsp sesame oil."] },
+  { id: "samgyeopsal", c: "korean", n: "Pork belly lettuce wraps", t: "30 min", d: "Korean BBQ night at home", ing: [[3,"lb","Sliced pork belly","M"],[2,"head","Red leaf lettuce","P"],[1,"tub","Ssamjang","X",L.gochu],[1,"jar","Vegan kimchi","R",L.kimchi],[1,"head","Garlic","P"],[1,"","English cucumber","P"],[1,"bunch","Green onions","P"],[0,"","Sesame oil","S"],[0,"","Short-grain rice","S"]], s: ["Grill pork belly in batches until crisp.", "Set out lettuce, ssamjang, kimchi, sliced garlic and cucumber.", "Everyone wraps their own."] },
+  { id: "kimchirice", c: "korean", n: "Kimchi fried rice with pork", t: "25 min", d: "Use up leftover rice", note: "No fried egg on top.", ing: [[1.5,"lb","Ground pork","M"],[1,"jar","Vegan kimchi","R",L.kimchi],[1,"bunch","Green onions","P"],[1,"bag","Frozen peas","F"],[1,"tub","Gochujang","X",L.gochu],[0,"","Sesame oil","S"],[0,"","Soy sauce","S"],[0,"","Short-grain rice","S"]], s: ["Use 8 cups of cooked, cooled rice.", "Brown pork, add chopped kimchi and 2 tbsp gochujang.", "Add rice and peas; fry until crisp in spots.", "Finish with sesame oil and green onions."] },
+  // Chinese
+  { id: "beefbroc", c: "chinese", n: "Beef and broccoli", t: "30 min", d: "The takeout classic", ing: [[2.5,"lb","Flank steak","M"],[3,"head","Broccoli","P"],[1,"head","Garlic","P"],[1,"piece","Fresh ginger","P"],[1,"bottle","Oyster sauce","X","Contains shellfish, which Greyson can have. Check for fish."],[0,"","Soy sauce","S"],[0,"","Brown sugar","S"],[0,"","Cornstarch","S"],[0,"","Short-grain rice","S"]], s: ["Slice steak thin across the grain; toss with 1 tbsp cornstarch.", "Sear in batches in a very hot pan.", "Stir-fry broccoli with garlic and ginger.", "Add ¼ cup oyster sauce, ¼ cup soy, 2 tbsp brown sugar and 1 tbsp cornstarch in ½ cup water. Return beef."] },
+  { id: "mongolian", c: "chinese", n: "Mongolian beef", t: "30 min", d: "Crispy beef, sweet garlic sauce", ing: [[2.5,"lb","Flank steak","M"],[2,"bunch","Green onions","P"],[1,"head","Garlic","P"],[1,"piece","Fresh ginger","P"],[1.5,"lb","Green beans","P"],[0,"","Soy sauce","S"],[0,"","Brown sugar","S"],[0,"","Cornstarch","S"],[0,"","Vegetable oil","S"],[0,"","Short-grain rice","S"]], s: ["Coat thin-sliced beef in cornstarch; pan-fry until crisp.", "Simmer ½ cup soy, ½ cup brown sugar, garlic and ginger until syrupy.", "Toss beef and green onions in the sauce.", "Serve with rice and stir-fried green beans."] },
+  { id: "orange", c: "chinese", n: "Orange chicken", t: "40 min", d: "Crispy and sticky, no egg batter", note: "Coated in cornstarch only. No egg.", ing: [[3,"lb","Boneless chicken thighs","M"],[3,"","Oranges","P"],[1,"head","Garlic","P"],[1,"piece","Fresh ginger","P"],[2,"head","Broccoli","P"],[0,"","Cornstarch","S"],[0,"","Soy sauce","S"],[0,"","Sugar","S"],[0,"","Rice vinegar","S"],[0,"","Vegetable oil","S"],[0,"","Short-grain rice","S"]], s: ["Toss bite-size chicken in cornstarch; shallow-fry until crisp.", "Simmer 1 cup orange juice, zest, ⅓ cup sugar, ¼ cup soy, 2 tbsp vinegar, garlic and ginger; thicken with cornstarch.", "Toss chicken in the sauce.", "Serve with rice and broccoli."] },
+  { id: "charsiu", c: "chinese", n: "Char siu BBQ pork", t: "1 hr + marinate", d: "Sweet roast pork, no red dye", note: "Jarred char siu sauce is usually dyed red. This homemade version isn't.", ing: [[3.5,"lb","Boneless pork shoulder","M"],[1,"jar","Hoisin sauce","X",L.hoisin],[1,"bottle","Honey","A"],[1,"jar","Chinese five-spice","H"],[2,"lb","Baby bok choy","P"],[1,"head","Garlic","P"],[0,"","Soy sauce","S"],[0,"","Brown sugar","S"],[0,"","Short-grain rice","S"]], s: ["Mix ⅓ cup hoisin, ¼ cup soy, ¼ cup brown sugar, 1 tsp five-spice and garlic.", "Marinate pork strips 4 hours or overnight.", "Roast at 400°F about 40 min, brushing with honey at the end.", "Slice. Serve with rice and garlic bok choy."] },
+  { id: "mapo", c: "chinese", n: "Mild mapo tofu with pork", t: "25 min", d: "Silky tofu in savory pork sauce", ing: [[2,"block","Firm tofu, 14 oz","R"],[1.5,"lb","Ground pork","M"],[1,"jar","Doubanjiang (chili bean paste)","X","Check the label: some brands add fish."],[1,"bunch","Green onions","P"],[1,"head","Garlic","P"],[1,"piece","Fresh ginger","P"],[2,"lb","Baby bok choy","P"],[0,"","Cornstarch","S"],[0,"","Soy sauce","S"],[0,"","Short-grain rice","S"]], s: ["Brown pork with garlic and ginger.", "Add 1–2 tbsp doubanjiang (less for the kids), 1 tbsp soy and 1½ cups water.", "Add tofu cubes; simmer 5 min, thicken with cornstarch.", "Serve over rice with bok choy."] },
+  { id: "lomein", c: "chinese", n: "Chicken lo mein", t: "30 min", d: "Saucy noodles with chicken and veggies", ing: [[2,"lb","Egg-free lo mein noodles","X",L.noodle],[2,"lb","Chicken breast","M"],[1,"head","Napa cabbage","P"],[1,"lb","Carrots","P"],[8,"oz","Mushrooms","P"],[1,"bunch","Green onions","P"],[1,"bottle","Oyster sauce","X","Contains shellfish, which Greyson can have. Check for fish."],[0,"","Soy sauce","S"],[0,"","Sesame oil","S"]], s: ["Cook noodles; toss with sesame oil.", "Stir-fry chicken, then the vegetables.", "Add noodles, 3 tbsp oyster sauce and 3 tbsp soy; toss well."] },
+  { id: "friedrice", c: "chinese", n: "Chicken fried rice", t: "30 min", d: "No egg, all flavor", ing: [[2,"lb","Chicken breast","M"],[2,"bag","Frozen peas and carrots","F"],[1,"bunch","Green onions","P"],[0,"","Soy sauce","S"],[0,"","Sesame oil","S"],[0,"","Short-grain rice","S"]], s: ["Cook rice early and let it cool.", "Brown diced chicken.", "Add vegetables, then rice. Fry until crisp in spots.", "Season with soy sauce and sesame oil; top with green onions."] },
+  // Japanese
+  { id: "teriyaki", c: "japanese", n: "Teriyaki chicken", t: "35 min", d: "Glossy chicken over rice", ing: [[3,"lb","Boneless chicken thighs","M"],[1,"bottle","Teriyaki sauce","X",L.teri],[2,"head","Broccoli","P"],[1,"lb","Carrots","P"],[1,"bunch","Green onions","P"],[0,"","Short-grain rice","S"]], s: ["Brown chicken pieces in batches.", "Add sliced carrots and broccoli, then teriyaki sauce; simmer 5 min.", "Serve over rice with green onions."] },
+  { id: "karaage", c: "japanese", n: "Chicken karaage", t: "45 min", d: "Japanese fried chicken", note: "No egg in the coating. Fry in vegetable oil, never peanut oil.", ing: [[3,"lb","Boneless chicken thighs","M"],[1,"bag","Potato starch","A"],[1,"piece","Fresh ginger","P"],[1,"head","Garlic","P"],[2,"","Lemons","P"],[1,"head","Green cabbage","P"],[0,"","Soy sauce","S"],[0,"","Mirin","S"],[0,"","Vegetable oil","S"],[0,"","Short-grain rice","S"]], s: ["Marinate chicken pieces in ¼ cup soy, 2 tbsp mirin, ginger and garlic for 20 min.", "Coat in potato starch.", "Fry at 340°F until golden, then once more briefly for extra crunch.", "Serve with rice, shredded cabbage and lemon."] },
+  { id: "gyudon", c: "japanese", n: "Gyudon beef bowls", t: "30 min", d: "Sweet simmered beef and onions", note: "Usually made with dashi, which is fish broth. This version uses water, soy and mirin only.", ing: [[2.5,"lb","Thin-sliced ribeye","M"],[3,"","Yellow onions","P"],[1,"bunch","Green onions","P"],[1,"piece","Fresh ginger","P"],[1,"bag","Frozen edamame","F"],[0,"","Soy sauce","S"],[0,"","Mirin","S"],[0,"","Sugar","S"],[0,"","Short-grain rice","S"]], s: ["Simmer 1 cup water, ⅓ cup soy, ⅓ cup mirin, 2 tbsp sugar and ginger.", "Add sliced onions; cook 5 min.", "Add beef; cook just until done.", "Spoon over rice with edamame on the side."] },
+  { id: "tonkatsu", c: "japanese", n: "Tonkatsu pork cutlets", t: "45 min", d: "Crispy breaded pork", note: "Egg-free breading: dip in a flour-and-water batter (1 cup each) instead of egg.", ing: [[3,"lb","Boneless pork loin chops","M"],[1,"box","Panko","A",L.panko],[1,"bottle","Tonkatsu sauce","X",L.tonkatsu],[1,"head","Green cabbage","P"],[2,"","Lemons","P"],[0,"","All-purpose flour","S"],[0,"","Vegetable oil","S"],[0,"","Short-grain rice","S"]], s: ["Pound chops thin; season with salt.", "Dredge in flour, dip in flour-water batter, press into panko.", "Pan-fry 3–4 min per side.", "Slice. Serve with rice, shredded cabbage and sauce."] },
+  { id: "jcurry", c: "japanese", n: "Japanese chicken curry", t: "50 min", d: "Mild, thick and cozy", ing: [[2.5,"lb","Boneless chicken thighs","M"],[2,"box","Japanese curry roux (mild)","X",L.curry],[2,"lb","Yukon Gold potatoes","P"],[1,"lb","Carrots","P"],[2,"","Yellow onions","P"],[0,"","Vegetable oil","S"],[0,"","Short-grain rice","S"]], s: ["Brown chicken and onions.", "Add potato and carrot chunks and water per box; simmer 20 min.", "Turn off heat, stir in roux until thick.", "Serve over rice."] },
+  // Vietnamese
+  { id: "lemongrass", c: "vietnamese", n: "Lemongrass pork rice plates", t: "40 min + marinate", d: "Grilled pork, rice and fresh veggies", ing: [[3,"lb","Thin-sliced pork shoulder","M"],[1,"pack","Lemongrass","P"],[4,"","Shallots","P"],[1,"head","Garlic","P"],[1,"bottle","Vegan fish sauce","X",L.vfish],[1,"","English cucumber","P"],[3,"","Tomatoes","P"],[1,"head","Red leaf lettuce","P"],[0,"","Brown sugar","S"],[0,"","Vegetable oil","S"],[0,"","Short-grain rice","S"]], s: ["Blend lemongrass, shallots, garlic, 3 tbsp vegan fish sauce, 3 tbsp brown sugar and 2 tbsp oil.", "Marinate pork 1 hour or more.", "Grill or broil until charred.", "Serve with rice, cucumber, tomato and lettuce."] },
+  { id: "shaking", c: "vietnamese", n: "Shaking beef", t: "30 min", d: "Peppery seared steak cubes", ing: [[2.5,"lb","Sirloin steak","M"],[1,"","Red onion","P"],[2,"head","Romaine lettuce","P"],[2,"","Tomatoes","P"],[3,"","Limes","P"],[1,"head","Garlic","P"],[1,"bottle","Oyster sauce","X","Contains shellfish, which Greyson can have. Check for fish."],[0,"","Soy sauce","S"],[0,"","Sugar","S"],[0,"","Black pepper","S"],[0,"","Short-grain rice","S"]], s: ["Toss steak cubes with 2 tbsp oyster sauce, 1 tbsp soy, 1 tbsp sugar and garlic.", "Sear in a very hot pan, shaking, 3–4 min.", "Serve over lettuce and tomato with lime-pepper dip and rice."] },
+  { id: "pho", c: "vietnamese", n: "Beef pho", t: "3 hr (1 hr pressure cooker)", d: "Homemade noodle soup", note: "Restaurant pho almost always has fish sauce. Greyson should only eat pho made at home.", ing: [[4,"lb","Beef soup bones","M"],[1,"lb","Thin-sliced eye of round","M"],[2,"lb","Flat rice noodles (banh pho)","X",L.ricenoodle],[2,"","Yellow onions","P"],[1,"piece","Fresh ginger","P"],[1,"pack","Pho spice packet","H",L.spice],[1,"lb","Bean sprouts","P"],[1,"bunch","Thai basil","P"],[3,"","Limes","P"],[1,"jar","Hoisin sauce","X",L.hoisin],[1,"bottle","Vegan fish sauce","X",L.vfish]], s: ["Char onions and ginger; simmer with bones and spices 3 hours (or 1 hour pressure-cooked).", "Strain; season with vegan fish sauce and salt.", "Pour boiling broth over noodles and raw beef slices.", "Top with sprouts, basil, lime and hoisin."] },
+  { id: "banhmi", c: "vietnamese", n: "Bánh mì rice bowls", t: "35 min", d: "Sandwich flavors, rice bowl style", ing: [[3,"lb","Boneless chicken thighs","M"],[1,"jar","Vegenaise","R",L.mayo],[1,"lb","Carrots","P"],[1,"","Daikon radish","P"],[1,"","English cucumber","P"],[1,"bunch","Cilantro","P"],[2,"","Jalapeños","P"],[1,"bottle","Vegan fish sauce","X",L.vfish],[0,"","Rice vinegar","S"],[0,"","Sugar","S"],[0,"","Short-grain rice","S"]], s: ["Quick-pickle matchstick carrot and daikon in ½ cup vinegar, ½ cup water, 2 tbsp sugar.", "Marinate chicken in 2 tbsp vegan fish sauce and 1 tbsp sugar; grill or broil.", "Build bowls: rice, chicken, pickles, cucumber, cilantro, jalapeño, a swirl of Vegenaise."] },
+  { id: "springrolls", c: "vietnamese", n: "Fresh spring rolls with pork", t: "45 min", d: "Roll-your-own dinner", note: "Dip is hoisin, not peanut sauce.", ing: [[2,"lb","Thin-sliced pork shoulder","M"],[1,"pack","Rice paper wrappers","X",L.ricenoodle],[1,"lb","Rice vermicelli","X",L.ricenoodle],[1,"head","Red leaf lettuce","P"],[1,"","English cucumber","P"],[1,"bunch","Mint","P"],[1,"lb","Carrots","P"],[1,"jar","Hoisin sauce","X",L.hoisin],[0,"","Soy sauce","S"]], s: ["Cook vermicelli; rinse.", "Sear pork with a splash of soy.", "Set out everything; dip rice paper in warm water and roll.", "Serve with hoisin thinned with a little water."] },
+  // Filipino & Hawaiian
+  { id: "adobo", c: "islands", n: "Chicken adobo", t: "50 min", d: "Soy-vinegar braised chicken", ing: [[4,"lb","Bone-in chicken thighs","M"],[2,"head","Garlic","P"],[1,"jar","Bay leaves","H"],[1.5,"lb","Green beans","P"],[0,"","Soy sauce","S"],[0,"","White vinegar","S"],[0,"","Black pepper","S"],[0,"","Short-grain rice","S"]], s: ["Brown chicken skin-side down.", "Add ½ cup soy, ½ cup vinegar, 1 cup water, a whole head of garlic, bay leaves and pepper.", "Simmer covered 30 min, then uncovered until the sauce thickens.", "Serve with rice and green beans."] },
+  { id: "pinoybbq", c: "islands", n: "Filipino pork BBQ skewers", t: "40 min + marinate", d: "Sweet, sticky grilled pork", ing: [[3,"lb","Boneless pork shoulder","M"],[1,"bottle","Banana ketchup","X",L.dye],[2,"","Lemons","P"],[1,"head","Garlic","P"],[1,"pack","Wooden skewers","A"],[2,"","English cucumber","P"],[0,"","Soy sauce","S"],[0,"","Brown sugar","S"],[0,"","Short-grain rice","S"]], s: ["Mix ½ cup soy, ½ cup banana ketchup, ⅓ cup brown sugar, lemon juice and garlic.", "Marinate thin pork slices overnight; thread onto soaked skewers.", "Grill, basting with leftover marinade (boiled first).", "Serve with rice and cucumber salad."] },
+  { id: "huli", c: "islands", n: "Huli huli chicken", t: "45 min", d: "Hawaiian pineapple-glazed chicken", ing: [[4,"lb","Boneless chicken thighs","M"],[1,"","Pineapple","P"],[1,"can","Pineapple juice","A"],[1,"piece","Fresh ginger","P"],[1,"head","Garlic","P"],[1,"bunch","Green onions","P"],[2,"head","Broccoli","P"],[0,"","Ketchup","S"],[0,"","Soy sauce","S"],[0,"","Brown sugar","S"],[0,"","Short-grain rice","S"]], s: ["Mix ½ cup pineapple juice, ⅓ cup soy, ⅓ cup brown sugar, ¼ cup ketchup, ginger and garlic.", "Marinate chicken 1 hour or more; save some sauce for glazing.", "Grill with pineapple slices, glazing at the end.", "Serve with rice and broccoli."] },
+  { id: "kalua", c: "islands", n: "Kalua pork and cabbage", t: "8 hr slow cooker", d: "Smoky, hands-off pulled pork", note: "Skip the mac salad, which is made with mayo.", ing: [[4,"lb","Pork shoulder","M"],[1,"bottle","Liquid smoke","A"],[1,"head","Green cabbage","P"],[1,"","Pineapple","P"],[0,"","Salt","S"],[0,"","Short-grain rice","S"]], s: ["Rub pork with 1 tbsp coarse salt and 2 tbsp liquid smoke.", "Slow-cook on low 8 hours.", "Shred; stir in chopped cabbage for the last 20 min.", "Serve with rice and pineapple."] },
+  // Italian
+  { id: "spaghetti", c: "italian", n: "Spaghetti with meat sauce", t: "30 min", d: "The weeknight favorite", side: CHEESE, ing: [[2,"lb","Spaghetti, dried","A",L.pasta],[2,"lb","Ground beef","M"],[2,"jar","Marinara sauce, 24 oz","A",L.marinara],[1,"","Yellow onions","P"],[1,"head","Garlic","P"],[2,"head","Broccoli","P"],[0,"","Olive oil","S"]], s: ["Brown beef with onion and garlic.", "Add marinara; simmer 15 min.", "Boil pasta; steam broccoli in the last 4 min.", "Toss broccoli with olive oil and salt."] },
+  { id: "cacciatore", c: "italian", n: "Chicken cacciatore", t: "1 hr", d: "Chicken braised with peppers and tomato", ing: [[4,"lb","Bone-in chicken thighs","M"],[1,"can","Crushed tomatoes, 28 oz","A"],[3,"","Bell peppers","P"],[1,"","Yellow onions","P"],[8,"oz","Mushrooms","P"],[1,"head","Garlic","P"],[1,"lb","Penne, dried","A",L.pasta],[0,"","Dried oregano","S"],[0,"","Olive oil","S"]], s: ["Brown chicken in olive oil; set aside.", "Soften peppers, onion, mushrooms and garlic.", "Add tomatoes and oregano; return chicken and simmer 35 min.", "Serve over penne."] },
+  { id: "sausagepeppers", c: "italian", n: "Sausage and peppers pasta", t: "35 min", d: "Sweet Italian sausage with penne", side: CHEESE, ing: [[2.5,"lb","Italian sausage","M",L.sausage],[4,"","Bell peppers","P"],[2,"","Yellow onions","P"],[1,"jar","Marinara sauce, 24 oz","A",L.marinara],[2,"lb","Penne, dried","A",L.pasta],[2,"head","Romaine lettuce","P"],[0,"","Olive oil","S"]], s: ["Brown sausage; slice.", "Cook sliced peppers and onions until soft.", "Add sausage and marinara; simmer 10 min.", "Toss with penne. Side salad with olive oil and lemon."] },
+  { id: "meatballs", c: "italian", n: "Spaghetti and meatballs", t: "50 min", d: "Egg-free meatballs that hold together", side: CHEESE, note: "Oat milk and breadcrumbs hold the meatballs together instead of egg and Parmesan.", ing: [[1.5,"lb","Ground beef","M"],[1,"lb","Ground pork","M"],[1,"can","Plain breadcrumbs","A",L.crumbs],[2,"jar","Marinara sauce, 24 oz","A",L.marinara],[2,"lb","Spaghetti, dried","A",L.pasta],[1,"bunch","Parsley","P"],[1,"head","Garlic","P"],[0,"","Oat milk","S"]], s: ["Soak ¾ cup breadcrumbs in ½ cup oat milk.", "Mix with meat, garlic, parsley and salt; roll 30 meatballs.", "Bake at 425°F for 15 min, then simmer in marinara 10 min.", "Serve over spaghetti."] },
+  { id: "ziti", c: "italian", n: "Baked ziti", t: "50 min", d: "Cheesy for some, safe for all", side: "Bake a small separate dish with real mozzarella for Isla and Beckett.", ing: [[2,"lb","Ziti, dried","A",L.pasta],[1.5,"lb","Ground beef","M"],[2,"jar","Marinara sauce, 24 oz","A",L.marinara],[1,"bag","Dairy-free mozzarella shreds","R",L.dfcheese],[8,"oz","Mozzarella","R",L.cheese],[1,"head","Garlic","P"],[2,"head","Broccoli","P"]], s: ["Brown beef with garlic; add marinara.", "Toss with undercooked ziti.", "Big dish: dairy-free mozzarella on top. Small dish: real mozzarella.", "Bake at 400°F for 20 min."] },
+  { id: "pizza", c: "italian", n: "Homemade pizza night", t: "45 min", d: "Everyone tops their own", side: "Make one small pizza with real cheese for Isla and Beckett.", ing: [[2,"lb","Pizza dough","R",L.dough],[1,"jar","Pizza sauce","A"],[2,"bag","Dairy-free mozzarella shreds","R",L.dfcheese],[1,"pack","Applegate pepperoni","M",L.sausage],[1,"","Bell peppers","P"],[8,"oz","Mushrooms","P"]], s: ["Heat oven to 475°F with the sheet pans inside.", "Stretch dough into 3 pizzas; let each kid top their own.", "Bake 12–15 min."] },
+  { id: "minestrone", c: "italian", n: "Chicken minestrone", t: "45 min", d: "Hearty soup and crusty bread", note: "Leave out the Parmesan rind most recipes use.", ing: [[1.5,"lb","Chicken breast","M"],[2,"carton","Chicken broth, 32 oz","A",L.broth],[1,"lb","Ditalini pasta","A",L.pasta],[2,"can","Cannellini beans","A"],[1,"can","Diced tomatoes, 28 oz","A"],[1,"lb","Carrots","P"],[1,"bunch","Celery","P"],[2,"","Zucchini","P"],[1,"","Yellow onions","P"],[1,"loaf","Sourdough bread","B",L.bread],[0,"","Olive oil","S"]], s: ["Soften onion, carrot and celery in oil.", "Add diced chicken, broth, tomatoes and beans; simmer 15 min.", "Add zucchini and pasta; cook 10 min.", "Serve with sourdough."] },
+  // Mexican
+  { id: "tacos", c: "mexican", n: "Beef taco night", t: "25 min", d: "Build-your-own tacos", side: CHEESE, ing: [[2.5,"lb","Ground beef","M"],[2,"box","Hard taco shells","A"],[2,"packet","Taco seasoning","H",L.season],[1,"head","Romaine lettuce","P"],[3,"","Tomatoes","P"],[2,"can","Black beans","A"],[2,"","Avocados","P"],[1,"jar","Salsa","A"]], s: ["Brown beef; add seasoning and water.", "Warm beans and shells.", "Set out lettuce, tomato, avocado and salsa."] },
+  { id: "carneasada", c: "mexican", n: "Carne asada", t: "35 min + marinate", d: "Citrus-marinated grilled steak", side: CHEESE, ing: [[3,"lb","Skirt steak","M"],[4,"","Limes","P"],[2,"","Oranges","P"],[1,"head","Garlic","P"],[1,"bunch","Cilantro","P"],[2,"","Jalapeños","P"],[2,"pack","Corn tortillas, 30 ct","B"],[3,"","Avocados","P"],[1,"jar","Salsa","A"],[1,"","White onion","P"],[0,"","Ground cumin","S"]], s: ["Marinate steak in lime and orange juice, garlic, cilantro, jalapeño and cumin for 1–4 hours.", "Grill 4 min per side; rest, then slice thin.", "Serve in warm tortillas with onion, cilantro, avocado and salsa."] },
+  { id: "fajitas", c: "mexican", n: "Sheet-pan chicken fajitas", t: "35 min", d: "Everything on two pans", side: CHEESE, ing: [[2.5,"lb","Chicken breast","M"],[4,"","Bell peppers","P"],[2,"","Yellow onions","P"],[2,"","Limes","P"],[3,"","Avocados","P"],[2,"pack","Flour tortillas, 10 ct","B",L.tort],[1,"jar","Salsa","A"],[2,"packet","Fajita seasoning","H",L.season],[0,"","Olive oil","S"]], s: ["Heat oven to 425°F.", "Toss sliced chicken, peppers and onions with oil and seasoning on two pans.", "Roast 20–25 min.", "Squeeze lime over; serve in warm tortillas."] },
+  { id: "carnitas", c: "mexican", n: "Carnitas", t: "8 hr slow cooker", d: "Crispy pulled pork tacos", side: CHEESE, ing: [[4,"lb","Pork shoulder","M"],[2,"","Oranges","P"],[2,"","Limes","P"],[1,"","White onion","P"],[1,"head","Garlic","P"],[2,"pack","Corn tortillas, 30 ct","B"],[1,"jar","Salsa verde","A"],[2,"","Avocados","P"],[1,"bunch","Cilantro","P"],[0,"","Ground cumin","S"],[0,"","Dried oregano","S"]], s: ["Rub pork with salt, cumin and oregano; slow-cook with orange juice, onion and garlic 8 hours.", "Shred; broil on a sheet pan until crisp.", "Serve in tortillas with salsa verde, avocado and cilantro."] },
+  { id: "tinga", c: "mexican", n: "Chicken tinga tostadas", t: "40 min", d: "Smoky chipotle chicken", side: CHEESE, ing: [[3,"lb","Chicken breast","M"],[1,"can","Chipotles in adobo","A"],[1,"can","Crushed tomatoes, 15 oz","A"],[2,"","Yellow onions","P"],[1,"head","Garlic","P"],[2,"pack","Tostada shells","A"],[2,"can","Refried black beans","A"],[1,"head","Romaine lettuce","P"],[2,"","Avocados","P"]], s: ["Poach chicken 15 min; shred.", "Soften onions and garlic; blend with tomatoes and 1–2 chipotles (fewer for kids).", "Simmer chicken in the sauce 10 min.", "Layer beans, chicken, lettuce and avocado on tostadas."] },
+  { id: "burritobowl", c: "mexican", n: "Chicken burrito bowls", t: "35 min", d: "Rice bowls with all the fixings", side: CHEESE, ing: [[3,"lb","Boneless chicken thighs","M"],[2,"can","Black beans","A"],[1,"bag","Frozen corn","F"],[1,"head","Romaine lettuce","P"],[3,"","Tomatoes","P"],[3,"","Avocados","P"],[3,"","Limes","P"],[1,"jar","Salsa","A"],[1,"bunch","Cilantro","P"],[2,"packet","Taco seasoning","H",L.season],[0,"","Short-grain rice","S"]], s: ["Season chicken; grill or pan-sear, then slice.", "Make cilantro-lime rice.", "Warm beans and corn.", "Build bowls with lettuce, tomato, avocado and salsa."] },
+  // American
+  { id: "burgers", c: "american", n: "Burgers and oven fries", t: "40 min", d: "Classic burger night", side: CHEESE, ing: [[2.5,"lb","Ground beef","M"],[2,"pack","Hamburger buns, 8 ct","B",L.bread],[5,"lb","Russet potatoes","P"],[1,"head","Romaine lettuce","P"],[2,"","Tomatoes","P"],[0,"","Ketchup","S"],[0,"","Garlic powder","S"]], s: ["Cut potatoes into wedges; roast with oil and salt at 425°F for 35 min.", "Form 8 patties; season.", "Grill or pan-sear to 160°F.", "Serve on buns with lettuce and tomato."] },
+  { id: "roast", c: "american", n: "Roast chicken and potatoes", t: "1 hr 30 min", d: "Sunday-style roast", note: "Olive oil under the skin, not butter.", ing: [[2,"","Whole chicken, about 4 lb","M"],[4,"lb","Yukon Gold potatoes","P"],[2,"lb","Carrots","P"],[2,"","Lemons","P"],[1,"pack","Fresh rosemary","P"],[1,"head","Garlic","P"],[0,"","Olive oil","S"]], s: ["Heat oven to 425°F.", "Rub chickens with oil and salt; stuff with lemon, garlic and rosemary.", "Surround with potatoes and carrots.", "Roast about 75 min, until thighs reach 175°F."] },
+  { id: "pulledpork", c: "american", n: "BBQ pulled pork sandwiches", t: "8 hr slow cooker", d: "Hands-off, feeds a crowd", note: "Slaw uses vinegar and oil. Store-bought slaw dressing has egg.", ing: [[4,"lb","Pork shoulder","M"],[1,"bottle","BBQ sauce","A",L.bbq],[2,"pack","Hamburger buns, 8 ct","B",L.bread],[1,"bag","Coleslaw mix","P"],[0,"","Apple cider vinegar","S"],[0,"","Sugar","S"]], s: ["Cook pork on low 8 hours with 1 cup BBQ sauce.", "Shred and mix with more sauce.", "Toss slaw with 3 tbsp vinegar, 2 tbsp oil and 1 tbsp sugar.", "Serve on buns."] },
+  { id: "chili", c: "american", n: "Beef and bean chili", t: "45 min", d: "One big pot", side: CHEESE, ing: [[2,"lb","Ground beef","M"],[2,"can","Kidney beans","A"],[1,"can","Black beans","A"],[2,"can","Crushed tomatoes, 28 oz","A"],[2,"","Yellow onions","P"],[2,"","Bell peppers","P"],[1,"bag","Tortilla chips","A",L.chips],[0,"","Chili powder","S"],[0,"","Ground cumin","S"]], s: ["Brown beef with onions and peppers.", "Add 3 tbsp chili powder and 1 tbsp cumin.", "Add tomatoes and beans; simmer 30 min.", "Serve with chips."] },
+  { id: "drumsticks", c: "american", n: "Crispy baked drumsticks", t: "50 min", d: "With sweet potatoes and corn", ing: [[5,"lb","Chicken drumsticks","M"],[3,"lb","Sweet potatoes","P"],[6,"ear","Corn on the cob","P"],[0,"","Paprika","S"],[0,"","Garlic powder","S"],[0,"","Olive oil","S"]], s: ["Toss drumsticks with oil, paprika, garlic powder and salt; roast at 425°F for 45 min.", "Roast sweet potato cubes on a second pan.", "Boil corn 6 min; brush with olive oil."] },
+  { id: "lemonchicken", c: "american", n: "Lemon garlic chicken and veggies", t: "40 min", d: "Mom's chicken-and-vegetables night", ing: [[4,"lb","Bone-in chicken thighs","M"],[2,"","Lemons","P"],[1,"head","Garlic","P"],[2,"lb","Green beans","P"],[1,"lb","Carrots","P"],[0,"","Dried oregano","S"],[0,"","Olive oil","S"],[0,"","Short-grain rice","S"]], s: ["Toss chicken with oil, lemon, garlic, oregano and salt.", "Roast at 425°F for 35 min; add vegetables for the last 20.", "Serve with rice and pan juices."] },
+  { id: "chickensalad", c: "american", n: "Big grilled chicken salad", t: "30 min", d: "Mom's chicken salad night", side: "Cheese on the side for Isla and Beckett.", ing: [[3,"lb","Chicken breast","M"],[3,"head","Romaine lettuce","P"],[1,"","English cucumber","P"],[1,"pint","Cherry tomatoes","P"],[3,"","Avocados","P"],[1,"lb","Carrots","P"],[2,"","Lemons","P"],[1,"loaf","Sourdough bread","B",L.bread],[0,"","Olive oil","S"]], s: ["Season and grill chicken; slice.", "Toss greens and vegetables.", "Whisk ⅓ cup olive oil, juice of 2 lemons, salt and pepper.", "Serve with toasted sourdough."] },
+  { id: "pancakes", c: "american", n: "Pancakes and sausage", t: "30 min", d: "Breakfast for dinner", note: "Egg-free batter: 3 cups flour, 2 tbsp baking powder, 3 tbsp sugar, 2½ cups oat milk, 3 tbsp oil.", ing: [[2,"pack","Applegate chicken breakfast sausage","M",L.sausage],[1,"bottle","Maple syrup","A"],[2,"lb","Strawberries","P"],[1,"bunch","Bananas","P"],[0,"","Oat milk","S"],[0,"","All-purpose flour","S"],[0,"","Baking powder","S"],[0,"","Sugar","S"],[0,"","Vegetable oil","S"]], s: ["Whisk dry ingredients; stir in oat milk and oil.", "Cook on an oiled griddle.", "Brown sausage in another pan.", "Serve with fruit and syrup."] }
+];
+
+// ===== Health score =====
+// [veg 0-3, protein L lean | M medium | R rich | P processed, fried 0/1, salty 0/1]
+const HEALTH = {
+  galbi:[1,"R",0,1], bulgogi:[2,"M",0,1], jeyuk:[1,"M",0,1], dakgalbi:[2,"M",0,1], japchae:[3,"M",0,1], samgyeopsal:[1,"R",0,1], kimchirice:[1,"M",0,1],
+  beefbroc:[3,"M",0,1], mongolian:[1,"M",1,1], orange:[2,"M",1,1], charsiu:[2,"M",0,1], mapo:[2,"M",0,1], lomein:[2,"L",0,1], friedrice:[1,"L",0,1],
+  teriyaki:[2,"M",0,1], karaage:[1,"M",1,0], gyudon:[1,"M",0,1], tonkatsu:[1,"L",1,0], jcurry:[2,"M",0,1],
+  lemongrass:[2,"M",0,0], shaking:[2,"M",0,0], pho:[1,"L",0,1], banhmi:[3,"M",0,0], springrolls:[3,"M",0,0],
+  adobo:[2,"M",0,1], pinoybbq:[1,"M",0,1], huli:[2,"M",0,1], kalua:[2,"R",0,1],
+  spaghetti:[2,"M",0,0], cacciatore:[3,"M",0,0], sausagepeppers:[3,"P",0,1], meatballs:[1,"M",0,0], ziti:[2,"M",0,0], pizza:[1,"P",0,1], minestrone:[3,"L",0,0],
+  tacos:[2,"M",0,0], carneasada:[1,"M",0,0], fajitas:[3,"L",0,0], carnitas:[1,"R",0,0], tinga:[2,"L",0,0], burritobowl:[3,"M",0,0],
+  burgers:[1,"M",0,0], roast:[3,"M",0,0], pulledpork:[1,"R",0,1], chili:[3,"M",0,0], drumsticks:[2,"M",0,0], lemonchicken:[3,"M",0,0], chickensalad:[3,"L",0,0], pancakes:[1,"P",0,0]
+};
+for (const r of RECIPES) r.h = HEALTH[r.id] || [1, "M", 0, 1];
+const PROT = { L: 1, M: 0, R: -1, P: -2 };
+function health(r) {
+  const [veg, p, fried, salty] = r.h || [1, "M", 0, 1];
+  let sc = 5 + veg + (PROT[p] ?? 0) - 2 * fried - salty + (veg === 3 && !fried ? 1 : 0);
+  sc = Math.max(1, Math.min(10, sc));
+  const why = [];
+  if (veg >= 3) why.push("lots of veggies"); else if (veg <= 1) why.push("light on veggies");
+  if (p === "L") why.push("lean protein"); if (p === "R") why.push("rich meat"); if (p === "P") why.push("processed meat");
+  if (fried) why.push("fried"); if (salty) why.push("salty sauce");
+  return { sc, why, tier: sc >= 8 ? "great" : sc >= 5 ? "good" : "treat", label: sc >= 8 ? "Great" : sc >= 5 ? "Good" : "Treat night" };
+}
+function healthPill(r) { const h = health(r); return el("span", { class: "hs " + h.tier, text: `Health ${h.sc}/10 · ${h.label}` }); }
+
+// ===== Plate pictures (drawn, not photos) =====
+// [base, protein, sauce, veg colors]
+const ART = {
+  galbi:["rice","beef","soy","gg"], bulgogi:["rice","beef","soy","gog"], jeyuk:["rice","pork","red","gw"], dakgalbi:["rice","chicken","red","gyo"],
+  japchae:["noodle","beef","soy","gor"], samgyeopsal:["lettuce","pork","none","gw"], kimchirice:["rice","pork","red","gr"],
+  beefbroc:["rice","beef","soy","ggg"], mongolian:["rice","beef","soy","gg"], orange:["rice","crispy","orange","gg"], charsiu:["rice","pork","glaze","gg"],
+  mapo:["rice","tofu","red","g"], lomein:["noodle","chicken","soy","gog"], friedrice:["rice","chicken","soy","gog"],
+  teriyaki:["rice","chicken","soy","go"], karaage:["rice","crispy","none","gy"], gyudon:["rice","beef","soy","wg"], tonkatsu:["rice","crispy","soy","gy"], jcurry:["rice","chicken","curry","oy"],
+  lemongrass:["rice","pork","glaze","grg"], shaking:["rice","beef","soy","grg"], pho:["soup","beef","broth","gwg"], banhmi:["rice","chicken","none","ogw"], springrolls:["roll","pork","none","go"],
+  adobo:["rice","chicken","soy","g"], pinoybbq:["rice","pork","glaze","g"], huli:["rice","chicken","glaze","gy"], kalua:["rice","pork","none","gy"],
+  spaghetti:["pasta","beef","red","g"], cacciatore:["pasta","chicken","red","rgy"], sausagepeppers:["pasta","sausage","red","rgy"], meatballs:["pasta","meatball","red","g"],
+  ziti:["pasta","beef","red","w"], pizza:["pizza","sausage","red","rg"], minestrone:["soup","chicken","tomato","ogg"],
+  tacos:["taco","beef","none","grg"], carneasada:["taco","beef","none","gwg"], fajitas:["taco","chicken","none","ryg"], carnitas:["taco","pork","none","gwg"], tinga:["taco","chicken","red","gg"], burritobowl:["rice","chicken","none","gyrk"],
+  burgers:["burger","beef","none","gry"], roast:["plate","chicken","none","yo"], pulledpork:["burger","pork","glaze","g"], chili:["soup","beef","chili","k"],
+  drumsticks:["plate","chicken","none","yo"], lemonchicken:["plate","chicken","none","gog"], chickensalad:["salad","chicken","none","rgo"], pancakes:["pancake","sausage","none","rr"]
+};
+const MEAT = { beef: "#7a4a2e", chicken: "#dca35e", pork: "#c98262", crispy: "#e3a63f", tofu: "#f3e6c8", sausage: "#a64b36", meatball: "#8a4b2f" };
+const SAUCE = { soy: "#5b3220", red: "#c8382c", orange: "#f08a24", glaze: "#a83e27", curry: "#b98316", broth: "#d9a35b", tomato: "#d65a3a", chili: "#9e2f22" };
+const VEG = { g: "#36a852", o: "#f28c28", r: "#e04646", y: "#f5c542", w: "#f3f1e7", k: "#2b2b2b", p: "#8e44ad" };
+function seeded(str) { let h = 2166136261; for (const ch of str) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return () => { h = Math.imul(h ^ (h >>> 15), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); return ((h ^= h >>> 16) >>> 0) / 4294967296; }; }
+function artFor(r) {
+  if (ART[r.id]) return ART[r.id];
+  const t = (r.n + " " + r.ing.map(i => i[2]).join(" ")).toLowerCase();
+  const base = /noodle|lo mein|pho|ramen|udon/.test(t) ? "noodle" : /spaghetti|penne|pasta|ziti/.test(t) ? "pasta" : /tortilla|taco/.test(t) ? "taco" : /soup|stew/.test(t) ? "soup" : "rice";
+  const prot = /beef|steak/.test(t) ? "beef" : /pork/.test(t) ? "pork" : /tofu/.test(t) ? "tofu" : "chicken";
+  return [base, prot, /gochujang|chili|tomato/.test(t) ? "red" : /soy|teriyaki/.test(t) ? "soy" : "none", "gor"];
+}
+function plateSVG(r) {
+  const [base, prot, sauce, vegs] = artFor(r);
+  const rnd = seeded(r.id);
+  const R = (a, b) => a + rnd() * (b - a);
+  const meat = sauce !== "none" && !["broth", "tomato", "chili", "red"].includes(sauce) ? SAUCE[sauce] : MEAT[prot] || MEAT.chicken;
+  const parts = [];
+  const plate = `<ellipse cx="100" cy="68" rx="70" ry="56" fill="var(--plate-rim)"/><ellipse cx="100" cy="66" rx="64" ry="50" fill="var(--plate)"/>`;
+  const chunks = (cx, cy, w, h, n, color) => { for (let i = 0; i < n; i++) parts.push(`<rect x="${(cx + R(-w, w)).toFixed(1)}" y="${(cy + R(-h, h)).toFixed(1)}" width="${R(11, 17).toFixed(1)}" height="${R(8, 12).toFixed(1)}" rx="4" fill="${color}" transform="rotate(${R(-35, 35).toFixed(0)} ${cx} ${cy})" stroke="rgba(0,0,0,.18)" stroke-width="1"/>`); };
+  const vegDots = (cx, cy, w, h, n) => { const cs = vegs.split(""); for (let i = 0; i < n; i++) { const c = VEG[cs[i % cs.length]] || VEG.g; const x = cx + R(-w, w), y = cy + R(-h, h); if (cs[i % cs.length] === "g") parts.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5.5" fill="${c}"/><circle cx="${(x + 4).toFixed(1)}" cy="${(y - 3).toFixed(1)}" r="4.5" fill="${c}"/><circle cx="${(x - 3).toFixed(1)}" cy="${(y - 4).toFixed(1)}" r="4" fill="#2f8f45"/>`); else parts.push(`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${R(7, 10).toFixed(1)}" height="${R(5, 8).toFixed(1)}" rx="2.5" fill="${c}" transform="rotate(${R(0, 90).toFixed(0)} ${x.toFixed(1)} ${y.toFixed(1)})"/>`); } };
+  const rice = (cx, cy, rx, ry) => { parts.push(`<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="#fbfaf3" stroke="#e7e2cf" stroke-width="1.5"/>`); for (let i = 0; i < 14; i++) parts.push(`<ellipse cx="${(cx + R(-rx * .7, rx * .7)).toFixed(1)}" cy="${(cy + R(-ry * .6, ry * .6)).toFixed(1)}" rx="2.6" ry="1.3" fill="#e9e4d2" transform="rotate(${R(0, 180).toFixed(0)} ${cx} ${cy})"/>`); };
+  const noodles = (color, sauceColor) => { for (let i = 0; i < 9; i++) { const y = 42 + i * 5.5 + R(-2, 2); parts.push(`<path d="M${R(52, 62).toFixed(0)} ${y.toFixed(1)} q 12 ${R(-8, 8).toFixed(0)} 24 0 t 24 0 t 24 0 t 22 0" fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round"/>`); } if (sauceColor) parts.push(`<ellipse cx="100" cy="64" rx="30" ry="18" fill="${sauceColor}" opacity=".85"/>`); };
+  if (base === "rice") { parts.push(plate); rice(76, 66, 30, 26); chunks(124, 58, 16, 12, 8, meat); vegDots(118, 86, 20, 8, 6); }
+  else if (base === "noodle") { parts.push(plate); noodles(prot === "beef" && r.id === "japchae" ? "#d8cbb3" : "#e8c98a"); chunks(100, 56, 22, 10, 6, meat); vegDots(100, 80, 30, 8, 7); }
+  else if (base === "pasta") { parts.push(plate); noodles("#f0c86a", SAUCE[sauce] || SAUCE.red); if (prot === "meatball") for (let i = 0; i < 5; i++) parts.push(`<circle cx="${(100 + R(-22, 22)).toFixed(1)}" cy="${(64 + R(-12, 10)).toFixed(1)}" r="8" fill="${MEAT.meatball}" stroke="rgba(0,0,0,.2)"/>`); else chunks(100, 62, 18, 10, 6, MEAT[prot]); vegDots(100, 66, 26, 14, vegs === "w" ? 0 : 5); if (vegs === "w") for (let i = 0; i < 7; i++) parts.push(`<circle cx="${(100 + R(-24, 24)).toFixed(1)}" cy="${(64 + R(-14, 14)).toFixed(1)}" r="5" fill="#fbf6e4"/>`); }
+  else if (base === "soup") { parts.push(`<ellipse cx="100" cy="68" rx="66" ry="54" fill="var(--plate-rim)"/><ellipse cx="100" cy="66" rx="58" ry="46" fill="${SAUCE[sauce] || SAUCE.broth}"/>`); if (r.id === "pho") noodles("#f4ecd8"); if (vegs === "k") for (let i = 0; i < 14; i++) parts.push(`<ellipse cx="${(100 + R(-36, 36)).toFixed(1)}" cy="${(66 + R(-26, 26)).toFixed(1)}" rx="5" ry="3.4" fill="#5e1d16"/>`); chunks(100, 60, 24, 14, 6, MEAT[prot]); if (vegs !== "k") vegDots(100, 70, 32, 18, 8); }
+  else if (base === "taco") { parts.push(plate); for (let i = 0; i < 3; i++) { const x = 58 + i * 42; parts.push(`<path d="M${x - 22} 74 a 22 22 0 0 1 44 0 z" fill="#f2c14e" stroke="#d49a2a" stroke-width="2"/>`); chunks(x, 62, 9, 3, 3, sauce === "red" ? SAUCE.red : MEAT[prot]); vegDots(x, 58, 10, 3, 3); } parts.push(`<ellipse cx="100" cy="96" rx="22" ry="7" fill="#7fbf4a"/>`); }
+  else if (base === "burger") { parts.push(plate); parts.push(`<ellipse cx="80" cy="66" rx="30" ry="26" fill="#d39a4b"/><ellipse cx="80" cy="76" rx="31" ry="10" fill="${sauce === "glaze" ? SAUCE.glaze : MEAT.beef}"/><ellipse cx="80" cy="60" rx="28" ry="20" fill="#e2ad5c"/>`); for (let i = 0; i < 8; i++) parts.push(`<ellipse cx="${(80 + R(-18, 18)).toFixed(1)}" cy="${(58 + R(-12, 10)).toFixed(1)}" rx="1.8" ry="1" fill="#fff6dc"/>`); if (r.id === "burgers") for (let i = 0; i < 9; i++) parts.push(`<rect x="${(118 + R(-6, 20)).toFixed(1)}" y="${(52 + R(-6, 26)).toFixed(1)}" width="5" height="24" rx="2" fill="#f5c542" transform="rotate(${R(-30, 30).toFixed(0)} 130 66)"/>`); else parts.push(`<ellipse cx="128" cy="70" rx="20" ry="16" fill="#eef3d6"/>`); vegDots(128, 70, 14, 10, 4); }
+  else if (base === "pizza") { parts.push(`<circle cx="100" cy="66" r="56" fill="#e0a050"/><circle cx="100" cy="66" r="47" fill="#c8382c"/>`); for (let i = 0; i < 12; i++) parts.push(`<circle cx="${(100 + R(-34, 34)).toFixed(1)}" cy="${(66 + R(-34, 34)).toFixed(1)}" r="${R(6, 9).toFixed(1)}" fill="#f8e7b0"/>`); for (let i = 0; i < 8; i++) parts.push(`<circle cx="${(100 + R(-32, 32)).toFixed(1)}" cy="${(66 + R(-32, 32)).toFixed(1)}" r="6" fill="${MEAT.sausage}"/>`); vegDots(100, 66, 30, 30, 6); }
+  else if (base === "pancake") { parts.push(plate); for (let i = 0; i < 4; i++) parts.push(`<ellipse cx="88" cy="${76 - i * 6}" rx="34" ry="22" fill="#e8b25a" stroke="#c98d34" stroke-width="2"/>`); parts.push(`<path d="M66 54 q 22 -10 44 0 q -6 14 -20 10 q -14 6 -24 -10z" fill="#9c4f1d" opacity=".85"/>`); for (let i = 0; i < 3; i++) parts.push(`<rect x="${128 + i * 3}" y="${50 + i * 14}" width="26" height="9" rx="4.5" fill="${MEAT.sausage}"/>`); vegDots(140, 96, 10, 4, 3); }
+  else if (base === "salad" || base === "lettuce") { parts.push(plate); for (let i = 0; i < 16; i++) parts.push(`<ellipse cx="${(100 + R(-40, 40)).toFixed(1)}" cy="${(66 + R(-30, 30)).toFixed(1)}" rx="${R(10, 16).toFixed(1)}" ry="${R(6, 9).toFixed(1)}" fill="${i % 2 ? "#5cb85c" : "#86d06b"}" transform="rotate(${R(0, 180).toFixed(0)} 100 66)"/>`); chunks(100, 62, 24, 16, base === "salad" ? 7 : 9, MEAT[prot]); vegDots(100, 66, 34, 24, 7); }
+  else if (base === "roll") { parts.push(plate); for (let i = 0; i < 3; i++) { const y = 44 + i * 20; parts.push(`<rect x="62" y="${y}" width="68" height="16" rx="8" fill="#f4efe6" stroke="#d9d2c2" stroke-width="1.5"/><rect x="70" y="${y + 5}" width="12" height="6" rx="3" fill="#7fbf4a"/><rect x="88" y="${y + 5}" width="12" height="6" rx="3" fill="${MEAT[prot]}"/><rect x="106" y="${y + 5}" width="12" height="6" rx="3" fill="#f28c28"/>`); } parts.push(`<circle cx="148" cy="66" r="12" fill="#5b3220" stroke="var(--plate-rim)" stroke-width="3"/>`); }
+  else { parts.push(plate); chunks(84, 58, 18, 12, 4, MEAT[prot]); for (let i = 0; i < 7; i++) parts.push(`<circle cx="${(122 + R(-14, 14)).toFixed(1)}" cy="${(66 + R(-22, 22)).toFixed(1)}" r="7" fill="${VEG[vegs[i % vegs.length]] || VEG.y}" stroke="rgba(0,0,0,.12)"/>`); vegDots(84, 86, 22, 6, 4); }
+  let inner = parts.join("");
+  if (parts[0] === plate) { const cid = "pc" + Math.random().toString(36).slice(2, 8); inner = plate + `<clipPath id="${cid}"><ellipse cx="100" cy="66" rx="64" ry="50"/></clipPath><g clip-path="url(#${cid})">${parts.slice(1).join("")}</g>`; }
+  return `<svg viewBox="0 0 200 130" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Drawing of ${r.n.replace(/[<&"]/g, "")}"><rect width="200" height="130" fill="var(--art-bg)"/>${inner}</svg>`;
+}
+// ===== Real photos from Wikipedia (freely licensed, with credits) =====
+const WIKI = {
+  galbi: "Galbi", bulgogi: "Bulgogi", jeyuk: "Jeyuk-bokkeum", dakgalbi: "Dak-galbi", japchae: "Japchae", samgyeopsal: "Samgyeop-sal", kimchirice: "Kimchi fried rice",
+  beefbroc: "Beef and broccoli", mongolian: "Mongolian beef", orange: "Orange chicken", charsiu: "Char siu", mapo: "Mapo tofu", lomein: "Lo mein", friedrice: "Fried rice",
+  teriyaki: "Teriyaki", karaage: "Karaage", gyudon: "Gyūdon", tonkatsu: "Tonkatsu", jcurry: "Japanese curry",
+  lemongrass: "Cơm tấm", shaking: "Shaking beef", pho: "Pho", banhmi: "Bánh mì", springrolls: "Gỏi cuốn",
+  adobo: "Philippine adobo", pinoybbq: "Inihaw", huli: "Huli-huli chicken", kalua: "Kalua",
+  spaghetti: "Bolognese sauce", cacciatore: "Cacciatore", sausagepeppers: "Sausage and peppers", meatballs: "Spaghetti and meatballs", ziti: "Baked ziti", pizza: "Pizza", minestrone: "Minestrone",
+  tacos: "Taco", carneasada: "Carne asada", fajitas: "Fajita", carnitas: "Carnitas", tinga: "Tostada (tortilla)", burritobowl: "Burrito",
+  burgers: "Hamburger", roast: "Roast chicken", pulledpork: "Pulled pork", chili: "Chili con carne", drumsticks: "Fried chicken", lemonchicken: "Lemon chicken", chickensalad: "Grilled chicken", pancakes: "Pancake"
+};
+let wikiPics = {};
+function stripHtml(h) { const d = document.createElement("div"); d.innerHTML = h || ""; return (d.textContent || "").replace(/\s+/g, " ").trim(); }
+async function loadPhotos() {
+  try { const c = JSON.parse(localStorage.getItem("wikiPics3") || "null"); if (c && c.t > Date.now() - 7 * 864e5) { wikiPics = c.p; render(); return; } } catch (e) {}
+  try {
+    const api = "https://en.wikipedia.org/w/api.php?action=query&format=json&formatversion=2&origin=*";
+    const titles = [...new Set(Object.values(WIKI))];
+    const j = await (await fetch(api + "&redirects=1&prop=pageimages&piprop=thumbnail|name&pithumbsize=640&titles=" + encodeURIComponent(titles.join("|")))).json();
+    const alias = {}; for (const x of [...(j.query.normalized || []), ...(j.query.redirects || [])]) alias[x.from] = x.to;
+    const resolve = t => { let k = t, n = 0; while (alias[k] && n++ < 3) k = alias[k]; return k; };
+    const byTitle = {}; for (const pg of j.query.pages || []) byTitle[pg.title] = pg;
+    const files = [...new Set((j.query.pages || []).filter(pg => pg.pageimage).map(pg => "File:" + pg.pageimage))];
+    const meta = {};
+    if (files.length) {
+      const m = await (await fetch(api + "&prop=imageinfo&iiprop=extmetadata|url&titles=" + encodeURIComponent(files.join("|")))).json();
+      for (const pg of m.query.pages || []) { const em = pg.imageinfo?.[0]?.extmetadata || {}; meta[pg.title.replace(/^File:/, "").replace(/ /g, "_")] = { artist: stripHtml(em.Artist?.value) || "Unknown", license: em.LicenseShortName?.value || "", file: pg.imageinfo?.[0]?.descriptionurl || "" }; }
+    }
+    const out = {};
+    for (const [id, t] of Object.entries(WIKI)) {
+      const pg = byTitle[resolve(t)]; if (!pg || !pg.thumbnail) continue;
+      const md = meta[(pg.pageimage || "").replace(/ /g, "_")] || {};
+      out[id] = { src: pg.thumbnail.source, artist: md.artist || "Wikipedia contributor", license: md.license || "free license", file: md.file || ("https://en.wikipedia.org/wiki/" + encodeURIComponent(pg.title)) };
+    }
+    wikiPics = out;
+    try { localStorage.setItem("wikiPics3", JSON.stringify({ t: Date.now(), p: out })); } catch (e) {}
+    render();
+  } catch (e) { /* offline or blocked: drawings stay */ }
+}
+function picture(r, withCredit) {
+  const wp = wikiPics[r.id];
+  if (wp) {
+    const img = el("img", { class: "art", src: wp.src, alt: "Photo of " + r.n, loading: "lazy" });
+    img.addEventListener("error", () => { delete wikiPics[r.id]; img.replaceWith(picture(r, withCredit)); });
+    if (!withCredit) return img;
+    return el("figure", { class: "pic" }, img, el("figcaption", { class: "credit" }, "Photo of a typical version, not our allergy-safe recipe. ", el("a", { href: wp.file, target: "_blank", rel: "noopener", text: `${wp.artist}, ${wp.license}` })));
+  }
+  const w = document.createElement("div"); w.className = "art"; w.innerHTML = plateSVG(r); w.firstChild.style.cssText = "width:100%;height:100%;display:block;border-radius:12px"; return w;
+}
+
+// ===== Allergen checker for Claude's new ideas =====
+const ALLOWED = /(vegan fish sauce|plant[- ]based fish sauce|oat milk|coconut milk|soy milk|coconut cream|plant butter|vegan butter|dairy-free [a-z]+|egg-free [a-z]+|eggplant|butternut|butter lettuce|cream of tartar|vegan kimchi|nutmeg)/gi;
+const BANNED = /\b(fish|salmon|tuna|cod|tilapia|anchov\w*|sardines?|mackerel|halibut|trout|bonito|dashi|katsuobushi|shrimp|prawns?|crab|lobster|scallops?|clams?|mussels?|squid|octopus|worcestershire|eggs?|mayo|mayonnaise|aioli|milk|buttermilk|butter|cheese|cream|yogurt|yoghurt|ghee|whey|casein|parmesan|mozzarella|cheddar|almonds?|cashews?|walnuts?|pecans?|pistachios?|hazelnuts?|macadamias?|pine nuts?|brazil nuts?|peanuts?|praline|nutella|pesto|marzipan|kimchi|satay|nuts?)\b/i;
+function allergenHit(text) { const m = text.replace(ALLOWED, " ").match(BANNED); return m ? m[0] : null; }
+
+// ===== State =====
+let BY_ID = Object.fromEntries(RECIPES.map(r => [r.id, r]));
+let ideas = {};
+let nights = {};
+let status = "picking";
+let weekOf = "";
+let history = {};
+let got = {};
+let busyIdea = null;
+let photos = {};
+let takeover = null;
+let me = null;
+try { me = localStorage.getItem("me"); } catch (e) {}
+if (!PEOPLE[me] || me === "family") me = null;
+const ideaErr = {};
+
+function getRecipe(id) { return BY_ID[id] || ideas[id]; }
+function blankNight(k) { return { cuisine: null, options: [], dish: null, by: null }; }
+function ensureNights() { for (const d of DAYS) nights[d.k] = { ...blankNight(d.k), ...(nights[d.k] || {}) }; }
+ensureNights();
+
+const $ = id => document.getElementById(id);
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, 2400); }
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v == null) continue;
+    if (k === "class") e.className = v; else if (k === "text") e.textContent = v; else if (k === "style") e.style.cssText = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v);
+  }
+  for (const k of kids) if (k != null) e.append(k);
+  return e;
+}
+function mondayOf(d = new Date()) { const x = new Date(d); const day = (x.getDay() + 6) % 7; x.setDate(x.getDate() - day); return x.toISOString().slice(0, 10); }
+function fmtWeek(iso) { try { return new Date(iso + "T12:00:00").toLocaleDateString(undefined, { month: "long", day: "numeric" }); } catch (e) { return iso; } }
+function fmtQty(q, unit) {
+  const n = Math.round(q * 100) / 100;
+  const s = Number.isInteger(n) ? String(n) : String(n);
+  if (!unit) return s;
+  const plural = n > 1 && !["lb", "oz"].includes(unit) ? unit + (/(h|x)$/.test(unit) ? "es" : "s") : unit;
+  return s + " " + plural;
+}
+const STORES = {
+  winco: { n: "WinCo", url: null },
+  fredmeyer: { n: "Fred Meyer", url: q => "https://www.fredmeyer.com/search?query=" + q },
+  qfc: { n: "QFC", url: q => "https://www.qfc.com/search?query=" + q },
+  safeway: { n: "Safeway", url: q => "https://www.safeway.com/shop/search-results.html?q=" + q },
+  costco: { n: "Costco", url: q => "https://www.costco.com/CatalogSearch?dept=All&keyword=" + q },
+  groceryoutlet: { n: "Grocery Outlet", url: null },
+  amazon: { n: "Amazon Fresh", url: q => "https://www.amazon.com/s?k=" + q + "&i=amazonfresh" }
+};
+let store = "winco", costcoBulk = true;
+const BULK = /^(short-grain rice|olive oil|vegetable oil|avocados|soy sauce)$/i;
+function storeFor(it) { return costcoBulk && store !== "costco" && (it.aisle === "Meat" || BULK.test(it.name)) ? "costco" : store; }
+function storeLink(st, name) { const s = STORES[st]; return s.url ? s.url(encodeURIComponent(name.replace(/,.*$/, "").replace(/\(.*\)/, "").trim())) : null; }
+function amazonUrl(name) { return "https://www.amazon.com/s?k=" + encodeURIComponent(name.replace(/,.*$/, "").replace(/\(.*\)/, "")) + "&i=amazonfresh"; }
+
+// Pick 3 options: skip dishes already chosen this week, favor dishes not eaten recently.
+function pickOptions(cuisine, exclude = []) {
+  const taken = new Set(Object.values(nights).map(n => n.dish).filter(Boolean));
+  const pool = [...RECIPES, ...Object.values(ideas)].filter(r => r.c === cuisine && !taken.has(r.id) && !exclude.includes(r.id));
+  const scored = pool.map(r => ({ id: r.id, s: (history[r.id] ? Date.parse(history[r.id]) / 8.64e7 : 0) + Math.random() * 10 }));
+  scored.sort((a, b) => a.s - b.s);
+  let out = scored.slice(0, 3).map(x => x.id);
+  if (out.length < 3 && exclude.length) out = out.concat(exclude.filter(id => !taken.has(id))).slice(0, 3);
+  return out;
+}
+
+// ===== Render: week =====
+function renderWeek() {
+  $("weeklabel").textContent = "Week of " + fmtWeek(weekOf || mondayOf());
+  const doneCount = DAYS.filter(d => nights[d.k].dish).length;
+  $("progress").textContent = `${doneCount} of 7 nights picked`;
+  $("ready").hidden = status !== "ready";
+  $("done").disabled = doneCount === 0;
+  const ol = $("nights"); ol.replaceChildren();
+  for (const d of DAYS) ol.append(nightCard(d));
+  renderHealth();
+}
+
+function renderHealth() {
+  const box = $("health"); box.replaceChildren();
+  const picked = DAYS.map(d => getRecipe(nights[d.k].dish)).filter(Boolean);
+  box.append(el("h2", { text: "Health check for the week" }));
+  if (!picked.length) { box.append(el("p", { class: "fine", style: "font-size:.95rem", text: "Pick a few dinners and the week's health score shows up here. Every dish gets a score from 1 to 10 based on veggies, how lean the meat is, frying and salty sauces." })); return; }
+  const hs = picked.map(health);
+  const avg = hs.reduce((a, h) => a + h.sc, 0) / hs.length;
+  const veg = picked.filter(r => r.h[0] >= 2).length;
+  const rich = picked.filter(r => r.h[1] === "R" || r.h[1] === "P").length;
+  const fried = picked.filter(r => r.h[2]).length;
+  const treats = hs.filter(h => h.tier === "treat").length;
+  const goalVeg = Math.min(4, picked.length);
+  box.append(el("div", { class: "health-top" },
+    el("span", { class: "big", text: avg.toFixed(1) }, el("small", { text: " / 10" })),
+    el("div", { class: "meter", role: "img", "aria-label": `Average ${avg.toFixed(1)} out of 10` }, el("span", { style: `width:${avg * 10}%;background:${avg >= 7 ? "var(--ok)" : avg >= 5 ? "var(--tue)" : "var(--mon)"}` }))));
+  const checks = el("ul", { class: "checks" });
+  const add = (ok, title, sub) => checks.append(el("li", { class: ok ? "okc" : "warnc" }, title, el("span", { text: sub })));
+  add(veg >= goalVeg, `Veggie-packed nights: ${veg}`, `Aim for ${goalVeg} or more`);
+  add(rich <= 2, `Rich or processed meat: ${rich}`, "Aim for 2 or fewer");
+  add(fried <= 1, `Fried dinners: ${fried}`, "Aim for 1 or fewer");
+  add(treats <= 2, `Treat nights: ${treats}`, "1 or 2 is fine");
+  box.append(checks, el("p", { class: "fine", text: "A simple guide, not a nutrition analysis. Add fruit or a quick salad on lower-scoring nights to balance things out." }));
+}
+
+function nightCard(d) {
+  const n = nights[d.k];
+  const li = el("li", { class: "night" + (n.dish === "skip" ? " skipped" : ""), style: `--day:${d.c};--day-ink:${d.ink}` });
+  const byName = n.dish && n.by ? (PEOPLE[n.by]?.name || "Someone") : null;
+  li.append(el("div", { class: "night-top" }, el("span", { class: "dayname", text: d.n }), el("span", { class: "owner", text: byName ? "Picked by " + byName : n.dish ? "" : "Open" })));
+  const body = el("div", { class: "night-body" });
+  const who = me ? PEOPLE[me].name : "Someone";
+
+  if (n.dish) {
+    const r = n.dish === "skip" ? null : getRecipe(n.dish);
+    const box = el("div", { class: "chosen" });
+    if (r) {
+      const h = health(r);
+      box.append(picture(r, true), el("div", { class: "meta", text: (CZ_NAME[r.c] || "") + " · " + r.t + " · serves 6" }), el("div", { class: "cname", text: r.n }), healthPill(r));
+      if (h.why.length) box.append(el("div", { class: "why", text: h.why.join(" · ") }));
+      if (r.side) box.append(el("div", { class: "side", text: r.side }));
+      box.append(recipeDetails(r));
+    } else {
+      box.append(el("div", { class: "cname", text: n.dish === "skip" ? "No cooking tonight" : "Dish not found" }));
+    }
+    const row = el("div", { class: "row" });
+    if (takeover === d.k) {
+      box.append(el("div", { class: "note", text: `${byName || "Someone"} picked this. Change it anyway?` }));
+      row.append(el("button", { class: "btn small pop", text: "Yes, change it", onclick: () => { takeover = null; saveNight(d.k, { dish: null, by: null }); } }),
+                 el("button", { class: "btn small pop", text: "Keep it", onclick: () => { takeover = null; renderWeek(); } }));
+    } else {
+      row.append(el("button", { class: "btn small pop", text: "Change", onclick: () => { if (!me) return askWho(); if (n.by && n.by !== me) { takeover = d.k; renderWeek(); } else saveNight(d.k, { dish: null, by: null }); } }));
+    }
+    box.append(row);
+    body.append(box);
+  } else {
+    if (!me) { body.append(el("div", { class: "prompt", text: "Tap your name at the top to start picking." })); li.append(body); return li; }
+    body.append(el("div", { class: "prompt", text: n.cuisine ? `${who}, pick your dinner!` : `${who}, pick a food from around the world!` }));
+    const cz = el("div", { class: "cuisines" });
+    for (const [k, name] of CUISINES) {
+      cz.append(el("button", { class: "cz pop", "aria-pressed": String(n.cuisine === k), text: name, onclick: () => saveNight(d.k, { cuisine: k, options: pickOptions(k) }) }));
+    }
+    body.append(cz);
+    if (n.cuisine) {
+      const opts = el("div", { class: "options" });
+      for (const id of n.options || []) {
+        const r = getRecipe(id); if (!r) continue;
+        const b = el("button", { class: "opt pop", onclick: () => saveNight(d.k, { dish: id, by: me }) });
+        b.append(picture(r));
+        if (r.idea) b.append(el("span", { class: "newbadge", text: "New idea" }));
+        b.append(el("span", { class: "on", text: r.n }), el("span", { class: "od", text: r.d || "" }), el("span", { class: "ot", text: r.t }), healthPill(r));
+        opts.append(b);
+      }
+      body.append(opts);
+      const row = el("div", { class: "row" });
+      row.append(el("button", { class: "btn small pop", text: "Show me 3 others", onclick: () => saveNight(d.k, { options: pickOptions(n.cuisine, n.options || []) }) }));
+      row.append(el("button", { class: "btn small pop", text: "No cooking tonight", onclick: () => saveNight(d.k, { dish: "skip", by: me }) }));
+      body.append(row);
+    }
+  }
+  li.append(body);
+  return li;
+}
+
+function recipeDetails(r) {
+  const dt = el("details");
+  dt.append(el("summary", { text: "Recipe" }));
+  if (r.idea) dt.append(el("div", { class: "note", text: "New idea from Claude. It passed the allergy check, but read the ingredients yourself before cooking." }));
+  dt.append(el("h4", { text: "You'll need" }));
+  const ul = el("ul");
+  for (const [q, u, name] of r.ing) ul.append(el("li", { text: q ? `${name}: ${fmtQty(q, u)}` : `${name} (pantry)` }));
+  dt.append(ul, el("h4", { text: "Steps" }));
+  const ol = el("ol"); for (const s of r.s) ol.append(el("li", { text: s }));
+  dt.append(ol);
+  if (r.note) dt.append(el("div", { class: "note", style: "margin-top:8px", text: r.note }));
+  return dt;
+}
+
+// ===== Render: groceries =====
+function buildList() {
+  const map = new Map();
+  for (const d of DAYS) {
+    const r = getRecipe(nights[d.k].dish); if (!r) continue;
+    for (const [qty, unit, name, a, flag] of r.ing) {
+      const aisle = AISLE[a] || a || "Pantry";
+      const k = (name + "|" + (aisle === "Pantry staples" ? "" : unit)).toLowerCase();
+      if (!map.has(k)) map.set(k, { key: k, name, qty: 0, unit, aisle, flag, meals: new Set() });
+      const it = map.get(k); it.qty += qty || 0; it.meals.add(r.n);
+    }
+  }
+  return [...map.values()];
+}
+function renderList() {
+  const items = buildList();
+  const box = $("aisles"); box.replaceChildren();
+  $("list-count").textContent = items.length ? `(${items.filter(i => !got[i.key]).length})` : "";
+  if (!items.length) { box.append(el("p", { class: "fine", style: "font-size:1rem", text: "Nothing here yet. Pick some dinners and the list fills itself in." })); return; }
+  const stores = [...new Set(items.map(storeFor))].sort((a, b) => (a === "costco") - (b === "costco"));
+  for (const st of stores) {
+  if (stores.length > 1) box.append(el("div", { class: "storehead", text: STORES[st].n }));
+  for (const aisle of AISLE_ORDER) {
+    const rows = items.filter(i => i.aisle === aisle && storeFor(i) === st).sort((a, b) => a.name.localeCompare(b.name));
+    if (!rows.length) continue;
+    const ul = el("ul", { class: "items" });
+    for (const it of rows) {
+      const id = "chk-" + it.key.replace(/[^a-z0-9]+/g, "-");
+      const cb = el("input", { type: "checkbox", id }); cb.checked = !!got[it.key];
+      cb.addEventListener("change", () => setGot(it.key, cb.checked));
+      const lab = el("label", { for: id }, el("span", { class: "name", text: it.name }));
+      if (aisle !== "Pantry staples" && it.qty) lab.append(" ", el("span", { class: "qty", text: "· " + fmtQty(it.qty, it.unit) }));
+      lab.append(el("span", { class: "for", text: [...it.meals].join(", ") }));
+      if (it.flag) lab.append(el("span", { class: "flag", text: it.flag }));
+      const href = storeLink(st, it.name);
+      ul.append(el("li", { class: "item" + (got[it.key] ? " done" : "") }, cb, lab, href ? el("a", { class: "amz", href, target: "_blank", rel: "noopener", text: "Check price" }) : el("span")));
+    }
+    box.append(el("div", { class: "aisle", style: `--ac:${AISLE_COLOR[aisle]}` }, el("h3", { text: aisle === "Pantry staples" ? "Pantry staples: tick what you have" : aisle }), ul));
+  }
+  }
+}
+function listText() {
+  const items = buildList().filter(i => !got[i.key]);
+  const lines = ["Dinner Planner groceries, week of " + fmtWeek(weekOf || mondayOf())];
+  for (const st of [...new Set(items.map(storeFor))]) {
+  lines.push("", "== " + STORES[st].n.toUpperCase() + " ==");
+  for (const aisle of AISLE_ORDER) {
+    const rows = items.filter(i => i.aisle === aisle && storeFor(i) === st); if (!rows.length) continue;
+    lines.push("", aisle.toUpperCase());
+    for (const i of rows) lines.push("- " + i.name + (aisle === "Pantry staples" || !i.qty ? "" : " (" + fmtQty(i.qty, i.unit) + ")") + (i.flag ? "  [check label]" : ""));
+  }
+  }
+  return lines.join("\n");
+}
+function render() { renderWho(); renderWeek(); renderList(); renderCredits(); }
+function renderCredits() {
+  const ul = $("credits"); if (!ul) return; ul.replaceChildren();
+  for (const r of RECIPES) { const wp = wikiPics[r.id]; if (!wp) continue; ul.append(el("li", {}, r.n + ": ", el("a", { href: wp.file, target: "_blank", rel: "noopener", text: `${wp.artist}, ${wp.license}` }))); }
+  if (!ul.children.length) ul.append(el("li", { text: "Photos haven't loaded yet." }));
+}
+function renderWho() {
+  const box = $("who"); box.replaceChildren(el("b", { text: "I'm" }));
+  for (const k of ["dad", "mom", "greyson", "isla", "beckett", "jet"]) {
+    box.append(el("button", { class: "pop", style: `--pc:${PEOPLE[k].color}`, "aria-pressed": String(me === k), text: PEOPLE[k].name, onclick: () => { me = k; try { localStorage.setItem("me", k); } catch (e) {} render(); } }));
+  }
+}
+function askWho() { window.scrollTo({ top: 0, behavior: "smooth" }); toast("Tap your name first"); }
+
+// ===== Saving (Firebase) =====
+let famRef = null;
+const FP = (...p) => new firebase.firestore.FieldPath(...p);
+function fail() { toast("Couldn't save. Check your internet and try again."); }
+function saveNight(k, patch) {
+  nights = { ...nights, [k]: { ...nights[k], ...patch } };
+  if (status === "ready" && "dish" in patch) status = "picking";
+  render();
+  if (famRef) famRef.update(FP("nights", k), nights[k], "status", status).catch(fail);
+}
+function setGot(k, v) {
+  got = { ...got }; if (v) got[k] = true; else delete got[k]; renderList();
+  if (famRef) famRef.update(FP("got", k), v ? true : firebase.firestore.FieldValue.delete()).catch(fail);
+}
+function saveStore() { if (famRef) famRef.update({ store, costcoBulk }).catch(fail); }
+for (const [k, v] of Object.entries(STORES)) $("store").append(el("option", { value: k, text: v.n }));
+const STORE_NOTE = {
+  winco: "WinCo takes debit, cash and EBT, not credit cards. Skip the bulk bins for anything Greyson eats: nuts share the same scoops and bins. Vegan kimchi, rice cakes and glass noodles may need a stop at H Mart.",
+  groceryoutlet: "Grocery Outlet stock changes weekly, so some items may not be there. Check dates on meat and read labels carefully.",
+  costco: "Costco packs are large. Freeze extra meat in dinner-size bags the day you shop."
+};
+function syncStoreControls() { $("store").value = store; $("costco").checked = costcoBulk; $("costco").disabled = store === "costco"; const n = STORE_NOTE[store]; $("storenote").hidden = !n; $("storenote").textContent = n || ""; }
+$("store").addEventListener("change", () => { store = $("store").value; syncStoreControls(); renderList(); saveStore(); });
+$("costco").addEventListener("change", () => { costcoBulk = $("costco").checked; renderList(); saveStore(); });
+syncStoreControls();
+
+$("done").addEventListener("click", () => {
+  status = "ready"; render();
+  if (famRef) famRef.update({ status: "ready" }).catch(fail);
+  toast("Week saved! The shopping list is ready.");
+});
+$("newweek").addEventListener("click", () => { $("confirm-new").hidden = false; });
+$("confirm-no").addEventListener("click", () => { $("confirm-new").hidden = true; });
+$("confirm-yes").addEventListener("click", () => {
+  $("confirm-new").hidden = true;
+  const stamp = new Date().toISOString();
+  for (const d of DAYS) { const id = nights[d.k].dish; if (id && id !== "skip") history[id] = stamp; }
+  nights = {}; ensureNights();
+  status = "picking"; weekOf = mondayOf(new Date(Date.now() + 3 * 864e5)); got = {};
+  render(); toast("New week started");
+  if (famRef) famRef.update({ nights, status, weekOf, got: {}, history }).catch(fail);
+});
+$("reset").addEventListener("click", () => { got = {}; renderList(); if (famRef) famRef.update({ got: {} }).catch(fail); toast("Ticks cleared"); });
+$("copy").addEventListener("click", () => {
+  const text = listText();
+  const fallback = () => { $("copy-fallback").hidden = false; $("copy-text").value = text; $("copy-text").select(); toast("Select all and copy"); };
+  try { navigator.clipboard.writeText(text).then(() => toast("List copied"), fallback); } catch (e) { fallback(); }
+});
+
+// ===== Tabs =====
+for (const b of document.querySelectorAll("nav.tabs button")) {
+  b.addEventListener("click", () => {
+    for (const x of document.querySelectorAll("nav.tabs button")) x.setAttribute("aria-selected", x === b ? "true" : "false");
+    for (const v of ["plan", "list", "allergy"]) $("view-" + v).hidden = v !== b.dataset.view;
+    try { localStorage.setItem("tab", b.dataset.view); } catch (e) {}
+  });
+}
+try { const t = localStorage.getItem("tab"); if (t) document.querySelector(`nav.tabs button[data-view="${t}"]`)?.click(); } catch (e) {}
+
+render();
+
+// ===== Family link and live sync =====
+function codeFromHash() { const h = location.hash.replace(/^#/, ""); return /^[A-Za-z0-9]{16,40}$/.test(h) ? h : null; }
+let code = codeFromHash();
+try { if (!code) code = localStorage.getItem("family"); } catch (e) {}
+function shareLink() { return location.origin + location.pathname + "#" + code; }
+function showApp(on) { $("setup").hidden = on; $("tabs").hidden = !on; for (const v of ["plan", "list", "allergy"]) if (!on) $("view-" + v).hidden = true; if (on) document.querySelector('nav.tabs button[aria-selected="true"]').click(); }
+$("sharebtn").addEventListener("click", () => {
+  const link = shareLink();
+  const fallback = () => { $("sharetext").hidden = false; $("sharetext").value = link; $("sharetext").select(); toast("Select the link and copy it"); };
+  try { navigator.clipboard.writeText(link).then(() => toast("Family link copied"), fallback); } catch (e) { fallback(); }
+});
+$("create").addEventListener("click", async () => {
+  const bytes = crypto.getRandomValues(new Uint8Array(24));
+  const abc = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  const newCode = Array.from(bytes, x => abc[x % abc.length]).join("");
+  $("create").disabled = true;
+  try {
+    nights = {}; ensureNights();
+    await firebase.firestore().collection("families").doc(newCode).set({ nights, status: "picking", weekOf: mondayOf(), got: {}, history: {}, store: "winco", costcoBulk: true, created: new Date().toISOString() });
+    location.hash = newCode; connect(newCode);
+  } catch (e) { $("create").disabled = false; toast("Couldn't create the plan. Check the Firebase setup."); }
+});
+function connect(c) {
+  code = c;
+  try { localStorage.setItem("family", c); } catch (e) {}
+  if (!codeFromHash()) window.history.replaceState(null, "", "#" + c);
+  showApp(true); $("sharebox").hidden = false;
+  famRef = firebase.firestore().collection("families").doc(c);
+  famRef.onSnapshot({ includeMetadataChanges: true }, s => {
+    if (!s.exists) { if (!s.metadata.fromCache) $("sync").textContent = "This family link doesn't work. Ask Dad for the right one."; return; }
+    const v = s.data();
+    nights = JSON.parse(JSON.stringify(v.nights || {})); ensureNights();
+    status = v.status || "picking"; weekOf = v.weekOf || ""; got = { ...(v.got || {}) }; history = { ...(v.history || {}) };
+    if (v.store && STORES[v.store]) store = v.store;
+    if (typeof v.costcoBulk === "boolean") costcoBulk = v.costcoBulk;
+    syncStoreControls(); render();
+    $("sync").textContent = s.metadata.fromCache ? "Offline right now. Showing the last saved week." : "Saved for the whole family.";
+  }, () => { $("sync").textContent = "Couldn't reach the family database."; });
+}
+loadPhotos();
+(function start() {
+  if (!window.firebase || !FIREBASE_CONFIG) { $("sync").textContent = "Not connected to the family database yet. Picks stay on this phone only."; return; }
+  firebase.initializeApp(FIREBASE_CONFIG);
+  try { firebase.firestore().enablePersistence({ synchronizeTabs: true }).catch(() => {}); } catch (e) {}
+  if (code) connect(code); else { $("sync").textContent = ""; showApp(false); }
+})();
+</script>
+</body>
+</html>
